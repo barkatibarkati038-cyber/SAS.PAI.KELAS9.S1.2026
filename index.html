@@ -1,560 +1,1925 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi CBT - Ujian Berbasis Web</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
-        .no-select { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
-        /* Scrollbar styling */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CBT - Pendidikan Agama Islam dan Budi Pekerti | Kelas IX</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React 18 & ReactDOM 18 CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone CDN -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Google Fonts (Plus Jakarta Sans & Amiri untuk Teks Arab) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .arabic-text {
+      font-family: 'Amiri', serif;
+      direction: rtl;
+      text-align: right;
+      font-size: 1.55rem;
+      line-height: 2.35rem;
+      background-color: #f0f9ff;
+      border-right: 4px solid #0284c7;
+      padding: 0.75rem 1.15rem;
+      margin: 0.75rem 0;
+      border-radius: 0.5rem;
+      color: #0f172a;
+    }
+    .no-select {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+  </style>
 </head>
-<body class="no-select">
-    <div id="root"></div>
+<body class="min-h-screen bg-gradient-to-br from-cyan-600 via-sky-700 to-blue-900 text-slate-800 antialiased">
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
 
-        // ==========================================
-        // KONFIGURASI APLIKASI
-        // ==========================================
-        const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZBekmzrTvwso51PawC39P5gkOFKhrsDsbp_O2b7u3-PFroyeR2U6jKsCR-yCRCu7M/exec"; // Ganti dengan URL Web App Anda
-        const IDENTITAS_UJIAN = {
-            mapel: "Pendidikan Agama Islam dan Budi Pekerti",
-            jenis: "SUMATIF AKHIR JENJANG (SAJ) 2026/2027",
-            kelas: "XI",
-            durasi: 90 // Menit
-        };
-        const STORAGE_KEY = `cbt_${IDENTITAS_UJIAN.mapel}_${IDENTITAS_UJIAN.kelas}`;
+    // =========================================================================
+    // KONFIGURASI GOOGLE SHEETS & IDENTITAS UJIAN
+    // =========================================================================
+    const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzZBekmzrTvwso51PawC39P5gkOFKhrsDsbp_O2b7u3-PFroyeR2U6jKsCR-yCRCu7M/exec";
 
-        // ==========================================
-        // DATA SOAL (EKSTRAKSI DARI PDF)
-        // ==========================================
-        const rawQuestionsData = [
-            { id: 1, type: 'mc', text: "Perhatikan potongan hadis riwayat Ibnu Majah berikut ini!\nطَلَبُ الْعِلْمِ فَرِيضَةً عَلَى كُلِّ مُسْلِمٍ\nBerdasarkan potongan hadis tersebut, hukum menuntut ilmu bagi setiap muslim laki-laki maupun perempuan adalah ....", options: [{id: "A", text: "sunah muakkad (sunah yang sangat dianjurkan)"}, {id: "B", text: "fardu 'ain (wajib bagi setiap individu muslim)"}, {id: "C", text: "mubah (boleh dilakukan dan boleh ditinggalkan)"}, {id: "D", text: "fardu kifayah (wajib yang gugur jika sudah diwakili orang lain)"}], answer: "B" },
-            { id: 2, type: 'mc', text: "Perhatikan potongan Q.S. Al-Mujadilah [58]: 11 berikut ini!\nيَرْفَعِ اللَّهُ الَّذِينَ آمَنُوا مِنْكُمْ وَالَّذِينَ أُوتُوا الْعِلْمَ دَرَجَتٌ\nJanji Allah Swt. yang terkandung dalam potongan ayat tersebut bagi orang-orang yang beriman dan memiliki ilmu pengetahuan adalah ....", options: [{id: "A", text: "dimudahkan segala urusan rezekinya di dunia"}, {id: "B", text: "diampuni seluruh dosa-dosanya pada masa lalu"}, {id: "C", text: "diangkat derajatnya oleh Allah Swt. beberapa derajat"}, {id: "D", text: "dilindungi dari segala macam musibah dan bencana"}], answer: "C" },
-            { id: 3, type: 'mc', text: "Rafi adalah siswa kelas 9 SMP yang dikenal sangat rajin belajar. Sebelum memulai pelajaran di kelas, ia selalu berdoa dan menyiapkan buku pelajarannya dengan rapi. Ketika guru sedang menjelaskan materi di depan kelas, Rafi mendengarkan dengan penuh perhatian dan tidak pernah memotong pembicaraan guru. Sikap yang ditunjukkan oleh Rafi merupakan penerapan dari ketentuan mencari ilmu dalam Islam, yaitu ....", options: [{id: "A", text: "menghormati guru dan bersungguh-sungguh dalam belajar"}, {id: "B", text: "mengutamakan ilmu umum dibandingkan ilmu agama"}, {id: "C", text: "mencari ilmu semata-mata agar mendapat pujian teman"}, {id: "D", text: "menghafal seluruh buku pelajaran tanpa memahaminya"}], answer: "A" },
-            { id: 4, type: 'mc', text: "Dalam Islam, ilmu dibagi menjadi dua macam berdasarkan hukum mempelajarinya. Contoh ilmu yang termasuk kategori fardu 'ain (ilmu pokok agama yang wajib dipelajari setiap muslim agar ibadahnya sah) adalah ....", options: [{id: "A", text: "ilmu kedokteran dan kesehatan masyarakat"}, {id: "B", text: "ilmu tata cara salat lima waktu dan bersuci"}, {id: "C", text: "ilmu teknik arsitektur dan pembangunan gedung"}, {id: "D", text: "ilmu perdagangan dan pengelolaan keuangan modern"}], answer: "B" },
-            { id: 5, type: 'mc', text: "Perhatikan pernyataan-pernyataan berikut tentang ketentuan dan adab mencari ilmu dalam Islam!\n1. Meniatkan belajar dengan ikhlas karena mengharap rida Allah Swt.\n2. Menyombongkan kepandaian di hadapan teman yang nilainya rendah.\n3. Mengamalkan ilmu yang telah dipelajari dalam kehidupan sehari-hari.\n4. Menyimpan ilmu untuk diri sendiri agar tidak tersaingi orang lain.\nPernyataan yang menunjukkan adab terpuji bagi seorang penuntut ilmu ditunjukkan oleh nomor ....", options: [{id: "A", text: "1 dan 2"}, {id: "B", text: "1 dan 3"}, {id: "C", text: "2 dan 4"}, {id: "D", text: "3 dan 4"}], answer: "B" },
-            { id: 6, type: 'mc', text: "Saat membaca Al-Qur'an, kita sering menjumpai tanda-tanda kecil di atas huruf pada akhir atau tengah ayat yang disebut tanda waqaf (tanda berhenti sejenak saat membaca Al-Qur'an). Tujuan utama adanya tanda baca waqaf adalah ....", options: [{id: "A", text: "mempercepat bacaan Al-Qur'an agar segera khatam"}, {id: "B", text: "memperindah irama suara pembaca di hadapan pendengar"}, {id: "C", text: "menjaga ketepatan makna ayat agar tidak berubah arti"}, {id: "D", text: "membedakan antara ayat Makkiyah dan ayat Madaniyah"}], answer: "C" },
-            { id: 7, type: 'mc', text: "Perhatikan potongan Q.S. Al-An'am [6]: 36 berikut ini!\nإِنَّمَا يَسْتَجِيبُ الَّذِينَ يَسْمَعُونَ وَالْمَوْتَى يَبْعَثُهُمُ اللَّهُ\nPada lafaz يسْمَعُونَ terdapat tanda huruf mim kecil yang dinamakan waqaf lazim (tanda waqaf yang mengharuskan pembaca berhenti). Cara membaca ayat tersebut yang benar adalah ....", options: [{id: "A", text: "harus berhenti pada kata yasma'una lalu mengambil napas sebelum melanjutkan"}, {id: "B", text: "dilarang berhenti pada kata yasma'una dan wajib menyambungnya"}, {id: "C", text: "lebih utama menyambung bacaan daripada berhenti pada kata tersebut"}, {id: "D", text: "boleh berhenti pada salah satu dari dua tanda titik tiga yang berdekatan"}], answer: "A" },
-            { id: 8, type: 'mc', text: "Ketika membaca Al-Qur'an, seorang siswa melihat tanda huruf lam alif kecil (لا) di atas sebuah kata. Tanda tersebut dinamakan adamul waqfi (tidak boleh berhenti). Jika tanda tersebut berada di tengah ayat dan napas pembaca masih kuat, maka sikap yang tepat adalah ....", options: [{id: "A", text: "menghentikan bacaan sejenak selama dua ketukan"}, {id: "B", text: "meneruskan bacaan tanpa berhenti pada tanda tersebut"}, {id: "C", text: "mengulang bacaan dari awal surah yang sedang dibaca"}, {id: "D", text: "berhenti total dan mengakhiri kegiatan tilawah Al-Qur'an"}], answer: "B" },
-            { id: 9, type: 'mc', text: "Dalam ilmu tajwid terdapat tanda waqaf al-waqfu aula yang dilambangkan dengan huruf (قلى) dan tanda waqaf al-waslu aula yang dilambangkan dengan huruf (صلى). Perbedaan cara membaca kedua tanda tersebut adalah ....", options: [{id: "A", text: "tanda (قلى) dilarang berhenti, sedangkan tanda (صلى) wajib berhenti"}, {id: "B", text: "tanda (قلى) wajib berhenti, sedangkan tanda (صلى) wajib diteruskan"}, {id: "C", text: "tanda (قلى) lebih utama berhenti, sedangkan tanda (صلى) lebih utama diteruskan"}, {id: "D", text: "tanda (قلى) lebih utama diteruskan, sedangkan tanda (صلى) lebih utama berhenti"}], answer: "C" },
-            { id: 10, type: 'mc', text: "Perhatikan Q.S. Al-Baqarah [2]: 2 berikut ini!\nذلِكَ الْكِتَبُ لَا رَيْبَ فِيهِ هُدًى لِّلْمُتَّقِينَ\nTanda titik tiga kembar (...) pada ayat tersebut dinamakan waqaf mu'anaqah (tanda berhenti yang berpasangan). Cara membaca yang sesuai kaidah tajwid pada tanda tersebut adalah ....", options: [{id: "A", text: "berhenti pada kedua tanda titik tiga secara berturut-turut"}, {id: "B", text: "tidak boleh berhenti pada kedua tanda titik tiga tersebut"}, {id: "C", text: "berhenti pada salah satu tanda titik tiga saja, bukan keduanya"}, {id: "D", text: "mengulang bacaan sebanyak tiga kali pada kata yang bertanda"}], answer: "C" },
-            { id: 11, type: 'mc', text: "Meyakini dengan sepenuh hati bahwa seluruh alam semesta beserta isinya pada suatu saat akan mengalami kehancuran total dan berganti dengan kehidupan akhirat yang kekal merupakan pengertian dari ....", options: [{id: "A", text: "iman kepada malaikat Allah Swt."}, {id: "B", text: "iman kepada kitab-kitab Allah Swt."}, {id: "C", text: "iman kepada hari akhir (hari kiamat)"}, {id: "D", text: "iman kepada qada dan qadar Allah Swt."}], answer: "C" },
-            { id: 12, type: 'mc', text: "Peristiwa hari kiamat dibedakan menjadi dua macam, yaitu kiamat sugra (kiamat kecil) dan kiamat kubra (kiamat besar). Berikut ini yang merupakan contoh peristiwa kiamat kubra adalah ....", options: [{id: "A", text: "terjadinya gempa bumi dan tsunami di suatu wilayah pesisir"}, {id: "B", text: "meninggalnya seseorang karena sakit keras atau usia lanjut"}, {id: "C", text: "hancurnya seluruh planet, bintang, dan alam semesta secara menyeluruh"}, {id: "D", text: "musibah kebakaran hutan yang merusak ekosistem di beberapa daerah"}], answer: "C" },
-            { id: 13, type: 'mc', text: "Pekan lalu, desa tempat tinggal Nabila dilanda banjir bandang yang merusak beberapa rumah warga. Selain itu, tetangga dekat rumahnya juga meninggal dunia secara mendadak karena serangan jantung. Peristiwa-peristiwa tersebut membuat Nabila tersadar bahwa kehidupan di dunia hanyalah sementara. Kejadian yang disaksikan Nabila tersebut termasuk contoh dari ....", options: [{id: "A", text: "kiamat sugra (kiamat kecil)"}, {id: "B", text: "kiamat kubra (kiamat besar)"}, {id: "C", text: "yaumul ba'ats (hari kebangkitan)"}, {id: "D", text: "yaumul mahsyar (hari berkumpul)"}], answer: "A" },
-            { id: 14, type: 'mc', text: "Perhatikan potongan Q.S. Al-Qari'ah [101]: 4-5 berikut ini!\nيَوْمَ يَكُونُ النَّاسُ كَالْفَرَاشِ الْمَبْثُوثِ (٤) وَتَكُونُ الْجِبَالُ كَالْعِهْنِ الْمَنْفُوشِ (٥)\nGambaran peristiwa hari kiamat yang dijelaskan dalam ayat tersebut adalah ....", options: [{id: "A", text: "manusia bersembunyi di dalam gua dan lautan menjadi surut kering"}, {id: "B", text: "manusia seperti laron yang beterbangan dan gunung seperti bulu yang dihamburkan"}, {id: "C", text: "bumi mengeluarkan seluruh harta terpendam dan langit terbelah menjadi dua"}, {id: "D", text: "matahari digulung hingga padam dan bintang-bintang berjatuhan ke bumi"}], answer: "B" },
-            { id: 15, type: 'mc', text: "Setelah seluruh makhluk dibangkitkan dari alam kubur pada peristiwa Yaumul Ba'ats (hari kebangkitan), seluruh manusia akan digiring dan dikumpulkan di suatu tempat yang sangat luas untuk menunggu pengadilan Allah Swt. Peristiwa berkumpulnya seluruh manusia tersebut dinamakan ....", options: [{id: "A", text: "Yaumul Mahsyar (hari berkumpul di padang Mahsyar)"}, {id: "B", text: "Yaumul Barzakh (hari penantian di alam kubur)"}, {id: "C", text: "Yaumul Fasl (hari keputusan antara kebenaran dan kebatilan)"}, {id: "D", text: "Yaumul Wa'id (hari terlaksananya ancaman balasan)"}], answer: "A" },
-            { id: 16, type: 'mc', text: "Pada hari akhir nanti, setiap amal perbuatan manusia selama hidup di dunia-baik sekecil biji sawi maupun sebesar gunung-akan ditimbang dengan seadil-adilnya. Peristiwa penimbangan amal perbuatan manusia tersebut disebut ....", options: [{id: "A", text: "Yaumul Hisab (hari perhitungan amal)"}, {id: "B", text: "Yaumul Mizan (hari penimbangan amal)"}, {id: "C", text: "Yaumul Jaza (hari pembalasan amal)"}, {id: "D", text: "Yaumut Tagabun (hari ditampakkannya kesalahan)"}], answer: "B" },
-            { id: 17, type: 'mc', text: "Setelah proses perhitungan dan penimbangan amal selesai, seluruh manusia akan melewati Sirat (jembatan yang terbentang di atas neraka menuju surga). Kondisi kecepatan manusia saat melewati Sirat berbeda-beda karena dipengaruhi oleh ....", options: [{id: "A", text: "banyaknya harta kekayaan dan jabatan yang dimiliki selama di dunia"}, {id: "B", text: "banyaknya jumlah anggota keluarga yang mendoakan dari dunia"}, {id: "C", text: "kadar keimanan dan amal saleh yang dikerjakan semasa hidup di dunia"}, {id: "D", text: "kepandaian seseorang dalam berbicara membela diri di hadapan manusia"}], answer: "C" },
-            { id: 18, type: 'mc', text: "Perhatikan pasangan nama lain hari akhir beserta artinya berikut ini!\n1. Yaumud Din artinya hari pembalasan agama dan amal perbuatan.\n2. Yaumul Hisab artinya hari dibangkitkannya manusia dari alam kubur.\n3. Yaumul Jaza artinya hari pemberian balasan sesuai amal perbuatan.\n4. Yaumul Ba'ats artinya hari ditimbangnya amal baik dan amal buruk.\nPasangan nama hari akhir beserta artinya yang tepat ditunjukkan oleh nomor ....", options: [{id: "A", text: "1 dan 2"}, {id: "B", text: "1 dan 3"}, {id: "C", text: "2 dan 4"}, {id: "D", text: "3 dan 4"}], answer: "B" },
-            { id: 19, type: 'mc', text: "Iman kepada hari akhir harus diwujudkan dengan sikap mawas diri (selalu introspeksi dan berhati-hati dalam bersikap agar tidak melanggar aturan agama). Contoh perilaku mawas diri seorang siswa di lingkungan sekolah adalah ....", options: [{id: "A", text: "mengerjakan soal ujian secara jujur meskipun tidak diawasi guru"}, {id: "B", text: "membantu teman memberikan jawaban saat ulangan harian berlangsung"}, {id: "C", text: "datang terlambat ke sekolah karena merasa guru tidak akan mencatat"}, {id: "D", text: "menyembunyikan barang milik teman sebagai bahan candaan di kelas"}], answer: "A" },
-            { id: 20, type: 'mc', text: "Hikmah terbesar yang dirasakan oleh seorang pelajar muslim ketika meyakini datangnya hari akhir dengan sepenuh hati adalah ....", options: [{id: "A", text: "meninggalkan seluruh aktivitas belajar karena dunia akan segera hancur"}, {id: "B", text: "takut bergaul dengan masyarakat agar tidak terpengaruh berbuat dosa"}, {id: "C", text: "terdorong untuk rajin beribadah, berbuat kebaikan, dan menjauhi larangan Allah"}, {id: "D", text: "merasa bangga dengan amal ibadahnya sehingga meremehkan orang lain"}], answer: "C" },
-            { id: 21, type: 'mc', text: "Dalam ajaran Islam, pergaulan antarmanusia diatur oleh etika (tata krama atau aturan perilaku yang baik) agar tercipta kedamaian dan saling menghormati. Tujuan utama Islam mengatur etika pergaulan bagi umatnya adalah ....", options: [{id: "A", text: "membatasi manusia agar tidak memiliki banyak teman di luar rumah"}, {id: "B", text: "menjaga kehormatan diri dan mencegah terjadinya permusuhan atau maksiat"}, {id: "C", text: "membedakan status sosial antara orang kaya dan orang miskin"}, {id: "D", text: "mewajibkan umat Islam hanya bergaul dengan keluarga dekat saja"}], answer: "B" },
-            { id: 22, type: 'mc', text: "Islam mengajarkan prinsip dasar dalam bergaul lintas usia, yaitu menghormati orang yang lebih tua dan menyayangi orang yang lebih muda. Perwujudan sikap yang tepat saat bergaul dengan adik kelas di sekolah adalah ....", options: [{id: "A", text: "menyuruh adik kelas mengerjakan tugas piket kelas kita setiap hari"}, {id: "B", text: "berbicara dengan nada tinggi agar adik kelas merasa takut dan segan"}, {id: "C", text: "membimbing, menyapa dengan ramah, dan memberi teladan yang baik"}, {id: "D", text: "mengabaikan adik kelas yang kesulitan mencari ruang kelas baru"}], answer: "C" },
-            { id: 23, type: 'mc', text: "Dalam pergaulan antara laki-laki dan perempuan yang bukan mahram, Islam melarang perilaku ikhtilat (bercampur baur tanpa batas syariat). Salah satu contoh menjaga batasan pergaulan yang sesuai ajaran Islam adalah ....", options: [{id: "A", text: "berduaan di tempat sepi untuk membicarakan tugas kelompok sekolah"}, {id: "B", text: "menjaga pandangan, menutup aurat, dan berkomunikasi seperlunya secara sopan"}, {id: "C", text: "bersenda gurau secara berlebihan hingga menyentuh lawan jenis"}, {id: "D", text: "menolak bekerja sama dalam kegiatan sosial resmi di lingkungan sekolah"}], answer: "B" },
-            { id: 24, type: 'mc', text: "Suatu sore, Dimas menerima pesan berantai yang menyebutkan bahwa temannya dituduh mengambil uang kas. Sebelum meneruskan pesan tersebut, Dimas menemui bendahara dan teman yang dituduh untuk menanyakan kebenaran berita itu secara langsung. Sikap yang dilakukan Dimas disebut tabayyun, yang artinya ....", options: [{id: "A", text: "menyebarkan berita dengan cepat agar teman-teman segera tahu"}, {id: "B", text: "memeriksa dan meneliti kebenaran suatu berita sebelum memercayainya"}, {id: "C", text: "membicarakan keburukan orang lain di belakang yang bersangkutan"}, {id: "D", text: "menyembunyikan kesalahan teman agar tidak dihukum oleh guru"}], answer: "B" },
-            { id: 25, type: 'mc', text: "Perhatikan potongan Q.S. Al-Isra' [17]: 23 berikut ini!\nفَلَا تَقُلْ لَّهُمَا أُفٍّ وَلَا تَنْهَرْهُمَا وَقُلْ لَّهُمَا قَوْلًا كَرِيمًا\nAyat tersebut memerintahkan setiap anak untuk menerapkan prinsip qaulan karima ketika berbicara dengan kedua orang tua. Makna dari istilah qaulan karima adalah ....", options: [{id: "A", text: "perkataan yang mulia, santun, dan penuh rasa hormat"}, {id: "B", text: "perkataan yang tegas, keras, dan penuh dengan peringatan"}, {id: "C", text: "perkataan yang panjang lebar agar mudah dipahami pendengar"}, {id: "D", text: "perkataan yang mengandung candaan untuk mencairkan suasana"}], answer: "A" },
-            { id: 26, type: 'mc', text: "Dalam berkomunikasi sehari-hari, seorang muslim diperintahkan untuk menerapkan qaulan sadida (perkataan yang benar, jujur, dan lurus). Contoh penerapan qaulan sadida bagi seorang pelajar adalah ....", options: [{id: "A", text: "menyampaikan alasan yang sebenarnya ketika terlambat datang ke sekolah"}, {id: "B", text: "melebih-lebihkan cerita agar teman-teman merasa kagum kepada kita"}, {id: "C", text: "memberikan janji kepada teman meskipun tahu tidak sanggup menepatinya"}, {id: "D", text: "menyembunyikan nilai ulangan yang kurang baik dari orang tua di rumah"}], answer: "A" },
-            { id: 27, type: 'mc', text: "Ketika hendak menasihati teman yang melakukan kesalahan agar ia mau berubah menjadi lebih baik, Islam mengajarkan prinsip qaulan layyina, yaitu ....", options: [{id: "A", text: "perkataan yang lemah lembut dan menyentuh hati tanpa menyinggung"}, {id: "B", text: "perkataan yang menyindir secara halus di depan orang banyak"}, {id: "C", text: "perkataan yang langsung menyalahkan agar teman merasa jera"}, {id: "D", text: "perkataan yang singkat tanpa memberikan penjelasan sama sekali"}], answer: "A" },
-            { id: 28, type: 'mc', text: "Perhatikan pernyataan-pernyataan berikut tentang etika berkomunikasi di media sosial!\n1. Menghindari ghibah (membicarakan aib atau keburukan orang lain) di kolom komentar.\n2. Menggunakan kata-kata santun dan tidak menyinggung suku, agama, atau ras.\n3. Langsung membagikan informasi sensasional tanpa memeriksa sumber beritanya.\n4. Menyebarkan foto pribadi teman tanpa izin untuk dijadikan bahan lelucon.\nEtika berkomunikasi di media sosial yang sesuai dengan ajaran Islam ditunjukkan oleh nomor ....", options: [{id: "A", text: "1 dan 2"}, {id: "B", text: "1 dan 4"}, {id: "C", text: "2 dan 3"}, {id: "D", text: "3 dan 4"}], answer: "A" },
-            { id: 29, type: 'mc', text: "Saat ada teman yang mengajak bermain gim daring padahal waktu salat Asar sudah tiba, Rina menolaknya dengan kalimat yang baik, sopan, dan tidak menyakiti perasaan temannya. Sikap Rina tersebut mencerminkan prinsip qaulan ma'rufa, yang artinya ....", options: [{id: "A", text: "perkataan yang baik, pantas, dan sesuai dengan norma kesopanan"}, {id: "B", text: "perkataan yang berat dan penuh dengan istilah ilmiah yang rumit"}, {id: "C", text: "perkataan yang diucapkan dengan suara lantang di tempat umum"}, {id: "D", text: "perkataan yang bertujuan membela diri sendiri di hadapan orang lain"}], answer: "A" },
-            { id: 30, type: 'mc', text: "Manfaat positif yang akan diperoleh seseorang apabila membiasakan etika pergaulan dan komunikasi Islami dalam kehidupan bermasyarakat adalah ....", options: [{id: "A", text: "dijauhi oleh teman sebaya karena dianggap terlalu kaku dalam bergaul"}, {id: "B", text: "terjalin hubungan persaudaraan yang harmonis dan terhindar dari konflik"}, {id: "C", text: "selalu mendapatkan keuntungan materi dari setiap orang yang dikenal"}, {id: "D", text: "bebas melakukan segala keinginan tanpa memperhatikan perasaan orang lain"}], answer: "B" },
-            { id: 31, type: 'mc', text: "Penyembelihan hewan ternak (kambing atau domba) sebagai wujud rasa syukur kepada Allah Swt. atas kelahiran seorang anak disebut ibadah akikah. Hukum melaksanakan akikah bagi orang tua yang mampu adalah ....", options: [{id: "A", text: "wajib 'ain (wajib atas setiap muslim tanpa terkecuali)"}, {id: "B", text: "sunah muakkad (sunah yang sangat dianjurkan oleh Rasulullah saw.)"}, {id: "C", text: "mubah (boleh dikerjakan dan boleh ditinggalkan tanpa anjuran)"}, {id: "D", text: "fardu kifayah (gugur kewajibannya jika tetangga sudah melaksanakan)"}], answer: "B" },
-            { id: 32, type: 'mc', text: "Ketentuan jumlah hewan akikah yang disunahkan oleh Rasulullah saw. berbeda antara anak laki-laki dan anak perempuan, yaitu ....", options: [{id: "A", text: "1 ekor kambing untuk anak laki-laki dan 2 ekor kambing untuk anak perempuan"}, {id: "B", text: "2 ekor kambing untuk anak laki-laki dan 1 ekor kambing untuk anak perempuan"}, {id: "C", text: "2 ekor kambing untuk anak laki-laki dan 2 ekor kambing untuk anak perempuan"}, {id: "D", text: "1 ekor kambing untuk anak laki-laki dan 1 ekor kambing untuk anak perempuan"}], answer: "B" },
-            { id: 33, type: 'mc', text: "Waktu pelaksanaan penyembelihan hewan akikah yang paling utama sesuai sunah Nabi Muhammad saw. adalah pada hari ke-.... setelah kelahiran bayi.", options: [{id: "A", text: "3"}, {id: "B", text: "7"}, {id: "C", text: "14"}, {id: "D", text: "40"}], answer: "B" },
-            { id: 34, type: 'mc', text: "Keluarga Pak Ahmad baru saja dikaruniai anak kembar, terdiri atas satu anak laki-laki dan satu anak perempuan. Sebagai ungkapan rasa syukur kepada Allah Swt., Pak Ahmad berniat melaksanakan ibadah akikah pada hari ketujuh kelahiran. Jumlah kambing yang disunahkan beserta cara pembagian dagingnya yang paling utama adalah ....", options: [{id: "A", text: "2 ekor kambing dan dibagikan dalam keadaan daging mentah"}, {id: "B", text: "3 ekor kambing dan dibagikan dalam keadaan sudah dimasak"}, {id: "C", text: "4 ekor kambing dan dibagikan dalam keadaan daging mentah"}, {id: "D", text: "3 ekor kambing dan seluruh dagingnya dimakan sendiri oleh keluarga"}], answer: "B" },
-            { id: 35, type: 'mc', text: "Perhatikan Q.S. Al-Kautsar [108]: 2 berikut ini!\nفَصَلِّ لِرَبِّكَ وَانْحَرُ\nAyat tersebut berisi perintah Allah Swt. kepada umat Islam untuk mendirikan salat dan melaksanakan ibadah ....", options: [{id: "A", text: "akikah"}, {id: "B", text: "zakat fitrah"}, {id: "C", text: "kurban (udhiyah)"}, {id: "D", text: "sedekah jariyah"}], answer: "C" },
-            { id: 36, type: 'mc', text: "Ibadah kurban tidak dapat dilaksanakan pada sembarang hari sepanjang tahun. Waktu pelaksanaan penyembelihan hewan kurban dimulai setelah salat Iduladha tanggal 10 Zulhijah hingga terbenamnya matahari pada tanggal ....", options: [{id: "A", text: "11 Zulhijah"}, {id: "B", text: "12 Zulhijah"}, {id: "C", text: "13 Zulhijah (akhir hari Tasyrik)"}, {id: "D", text: "15 Zulhijah"}], answer: "C" },
-            { id: 37, type: 'mc', text: "Agar ibadah kurban dinilai sah secara syariat, hewan ternak yang akan disembelih harus memenuhi syarat tertentu. Berikut ini yang merupakan syarat sah hewan kurban adalah ....", options: [{id: "A", text: "hewan harus berjenis kelamin betina yang sedang mengandung"}, {id: "B", text: "hewan ternak cukup umur, sehat, dan tidak memiliki cacat fisik yang nyata"}, {id: "C", text: "hewan boleh berupa unggas seperti ayam atau itik jika tidak mampu beli kambing"}, {id: "D", text: "hewan harus dibeli dari luar daerah dengan harga yang paling mahal"}], answer: "B" },
-            { id: 38, type: 'mc', text: "Perhatikan pernyataan-pernyataan berikut tentang perbedaan ibadah akikah dan kurban!\n1. Akikah berkaitan dengan kelahiran anak, sedangkan kurban pada bulan Zulhijah.\n2. Daging akikah dibagikan sudah dimasak, daging kurban dibagikan mentah.\n3. Hewan akikah boleh sapi untuk 7 orang, kurban hanya kambing.\n4. Hukum akikah wajib, hukum kurban mubah.\nPernyataan yang benar mengenai perbedaan akikah dan kurban ditunjukkan oleh nomor ....", options: [{id: "A", text: "1 dan 2"}, {id: "B", text: "1 dan 3"}, {id: "C", text: "2 dan 4"}, {id: "D", text: "3 dan 4"}], answer: "A" },
-            { id: 39, type: 'mc', text: "Ketentuan pembagian daging hewan kurban yang paling utama menurut syariat Islam adalah dibagi menjadi tiga bagian yang sama besar, yaitu untuk ....", options: [{id: "A", text: "orang yang berkurban, pengurus masjid, dan panitia penyembelihan"}, {id: "B", text: "orang yang berkurban, kerabat atau tetangga, dan fakir miskin"}, {id: "C", text: "fakir miskin, musafir yang lewat, dan dijual untuk kas masjid"}, {id: "D", text: "keluarga besar yang berkurban seluruhnya tanpa dibagikan keluar"}], answer: "B" },
-            { id: 40, type: 'mc', text: "Nilai kepedulian sosial yang dapat dipetik dari pelaksanaan ibadah akikah dan kurban di tengah masyarakat adalah ....", options: [{id: "A", text: "menunjukkan kemampuan ekonomi keluarga kepada tetangga sekitar"}, {id: "B", text: "mempererat tali persaudaraan dan membantu fakir miskin merasakan makanan bergizi"}, {id: "C", text: "mengurangi jumlah populasi hewan ternak agar tidak merusak lingkungan"}, {id: "D", text: "menggantikan kewajiban membayar zakat mal bagi orang-orang yang kaya"}], answer: "B" },
-            { id: 41, type: 'mc', text: "Daulah Usmani (Kesultanan Utsmaniyah) merupakan salah satu kerajaan Islam terbesar yang pernah berdiri dan wilayahnya membentang di tiga benua (Asia, Eropa, dan Afrika). Pendiri pertama Daulah Usmani adalah ....", options: [{id: "A", text: "Ertugrul bin Sulaiman Syah"}, {id: "B", text: "Usman I bin Ertugrul"}, {id: "C", text: "Sultan Muhammad II Al-Fatih"}, {id: "D", text: "Sultan Sulaiman Al-Qanuni"}], answer: "B" },
-            { id: 42, type: 'mc', text: "Pada tahun 1453 M, Daulah Usmani berhasil menaklukkan kota Konstantinopel yang sebelumnya merupakan pusat kekuasaan Kekaisaran Romawi Timur, lalu mengubah namanya menjadi Istanbul. Sultan Daulah Usmani yang memimpin penaklukan bersejarah tersebut adalah ....", options: [{id: "A", text: "Sultan Bayazid I"}, {id: "B", text: "Sultan Murad II"}, {id: "C", text: "Sultan Muhammad II (bergelar Al-Fatih, artinya Sang Penakluk)"}, {id: "D", text: "Sultan Salim I"}], answer: "C" },
-            { id: 43, type: 'mc', text: "Masa puncak kejayaan dan keemasan Daulah Usmani terjadi pada masa pemerintahan Sultan Sulaiman I. Beliau mendapat gelar Al-Qanuni (Sang Pembuat Undang-Undang) karena jasanya dalam ....", options: [{id: "A", text: "menaklukkan seluruh wilayah benua Amerika dan Australia"}, {id: "B", text: "menyusun dan menertibkan sistem hukum serta perundang-undangan negara"}, {id: "C", text: "menghapuskan seluruh pajak perdagangan di wilayah laut Tengah"}, {id: "D", text: "membangun benteng pertahanan di sepanjang perbatasan Tiongkok"}], answer: "B" },
-            { id: 44, type: 'mc', text: "Saat mengikuti program pertukaran pelajar di kota Istanbul, Turki, Farhan berkesempatan mengunjungi Masjid Biru (Sultan Ahmed Mosque) dan bangunan bersejarah Hagia Sophia. Ia sangat kagum melihat kemegahan kubah besar, menara yang menjulang tinggi, serta keindahan seni kaligrafi di dalamnya. Peninggalan bersejarah yang dikagumi Farhan tersebut merupakan bukti kemajuan Daulah Usmani dalam bidang ....", options: [{id: "A", text: "ilmu kedokteran dan farmasi"}, {id: "B", text: "seni arsitektur dan pembangunan"}, {id: "C", text: "ilmu kelautan dan perkapalan"}, {id: "D", text: "sistem pertanian dan irigasi"}], answer: "B" },
-            { id: 45, type: 'mc', text: "Kekuatan militer Daulah Usmani sangat disegani oleh bangsa-bangsa Eropa pada masa kejayaannya. Salah satu faktor utama kekuatan militer tersebut adalah dibentuknya pasukan elite infanteri yang terlatih dan disiplin tinggi yang bernama ....", options: [{id: "A", text: "Janissari (pasukan baru yang terlatih khusus)"}, {id: "B", text: "Mamluk (pasukan budak yang dimerdekakan)"}, {id: "C", text: "Firqah (pasukan berkuda dari wilayah pedalaman)"}, {id: "D", text: "Ansar (pasukan penolong penduduk asli kota)"}], answer: "A" },
-            { id: 46, type: 'mc', text: "Pada masa pemerintahan Sultan Sulaiman Al-Qanuni, disusun sebuah kitab undang-undang yang menjadi pedoman hukum bagi seluruh wilayah kekuasaan Daulah Usmani dengan memadukan hukum syariat Islam dan peraturan negara. Kitab undang-undang tersebut dikenal dengan nama ....", options: [{id: "A", text: "Al-Qanun fi at-Tibb"}, {id: "B", text: "Multaqa al-Abhur"}, {id: "C", text: "Ihya Ulumuddin"}, {id: "D", text: "Muqaddimah"}], answer: "B" },
-            { id: 47, type: 'mc', text: "Perhatikan pernyataan-pernyataan berikut mengenai kondisi Daulah Usmani pada abad ke-18 hingga awal abad ke-20!\n1. Wilayah kekuasaan yang terlalu luas sehingga sulit dikendalikan oleh pemerintah pusat.\n2. Kepemimpinan sultan-sultan terakhir yang lemah dan kurang cakap dalam memerintah.\n3. Pesatnya kemajuan teknologi industri yang mengalahkan seluruh negara Eropa.\n4. Munculnya berbagai gerakan pemberontakan dan perpecahan di wilayah kekuasaan.\nFaktor-faktor yang menyebabkan kemunduran dan keruntuhan Daulah Usmani ditunjukkan oleh nomor ....", options: [{id: "A", text: "1, 2, dan 3"}, {id: "B", text: "1, 2, dan 4"}, {id: "C", text: "1, 3, dan 4"}, {id: "D", text: "2, 3, dan 4"}], answer: "B" },
-            { id: 48, type: 'mc', text: "Setelah berhasil menguasai wilayah Hijaz (Makkah dan Madinah), para sultan Daulah Usmani menyandang gelar kehormatan Khadimul Haramain, yang artinya adalah ....", options: [{id: "A", text: "Penakluk Dua Benua Besar"}, {id: "B", text: "Pelayan Dua Tanah Suci (Makkah dan Madinah)"}, {id: "C", text: "Pemimpin Seluruh Umat Islam"}, {id: "D", text: "Penjaga Keamanan Jazirah Arab"}], answer: "B" }
-        ];
+    const EXAM_CONFIG = {
+      subject: "Pendidikan Agama Islam dan Budi Pekerti",
+      examType: "SUMATIF AKHIR JENJANG (SAJ) 2026/2027",
+      grade: "IX",
+      durationMinutes: 90
+    };
 
-        // ==========================================
-        // UTILS
-        // ==========================================
-        const shuffleArray = (array) => {
-            const arr = [...array];
-            for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [arr[i], arr[j]] = [arr[j], arr[i]];
-            }
-            return arr;
-        };
+    const STORAGE_KEY = `cbt_${EXAM_CONFIG.subject.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${EXAM_CONFIG.grade.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
 
-        // ==========================================
-        // KOMPONEN IKON (ANTI-FLICKER SVG INLINE)
-        // ==========================================
-        const IconClock = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>);
-        const IconChevronLeft = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>);
-        const IconChevronRight = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>);
-        const IconCheck = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>);
-        const IconAlertTriangle = () => (<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>);
+    // =========================================================================
+    // DATA SELURUH SOAL & KUNCI JAWABAN (50 SOAL DARI PDF)
+    // =========================================================================
+    const rawQuestionsData = [
+      {
+        id: 1,
+        type: 'mc',
+        question: `Perhatikan potongan hadis riwayat Ibnu Majah berikut ini!<div class="arabic-text">طَلَبُ الْعِلْمِ فَرِيضَةٌ عَلَى كُلِّ مُسْلِمٍ</div>Berdasarkan potongan hadis tersebut, hukum menuntut ilmu bagi setiap muslim laki-laki maupun perempuan adalah ....`,
+        options: [
+          { key: 'A', text: "sunah muakkad (sunah yang sangat dianjurkan)" },
+          { key: 'B', text: "fardu 'ain (wajib bagi setiap individu muslim)" },
+          { key: 'C', text: "mubah (boleh dilakukan dan boleh ditinggalkan)" },
+          { key: 'D', text: "fardu kifayah (wajib yang gugur jika sudah diwakili orang lain)" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 2,
+        type: 'mc',
+        question: `Perhatikan potongan Q.S. Al-Mujadilah [58]: 11 berikut ini!<div class="arabic-text">يَرْفَعِ اللَّهُ الَّذِينَ آمَنُوا مِنْكُمْ وَالَّذِينَ أُوتُوا الْعِلْمَ دَرَجَاتٍ</div>Janji Allah Swt. yang terkandung dalam potongan ayat tersebut bagi orang-orang yang beriman dan memiliki ilmu pengetahuan adalah ....`,
+        options: [
+          { key: 'A', text: "dimudahkan segala urusan rezekinya di dunia" },
+          { key: 'B', text: "diampuni seluruh dosa-dosanya pada masa lalu" },
+          { key: 'C', text: "diangkat derajatnya oleh Allah Swt. beberapa derajat" },
+          { key: 'D', text: "dilindungi dari segala macam musibah dan bencana" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 3,
+        type: 'mc',
+        question: `Rafi adalah siswa kelas 9 SMP yang dikenal sangat rajin belajar. Sebelum memulai pelajaran di kelas, ia selalu berdoa dan menyiapkan buku pelajarannya dengan rapi. Ketika guru sedang menjelaskan materi di depan kelas, Rafi mendengarkan dengan penuh perhatian dan tidak pernah memotong pembicaraan guru. Sikap yang ditunjukkan oleh Rafi merupakan penerapan dari ketentuan mencari ilmu dalam Islam, yaitu ....`,
+        options: [
+          { key: 'A', text: "menghormati guru dan bersungguh-sungguh dalam belajar" },
+          { key: 'B', text: "mengutamakan ilmu umum dibandingkan ilmu agama" },
+          { key: 'C', text: "mencari ilmu semata-mata agar mendapat pujian teman" },
+          { key: 'D', text: "menghafal seluruh buku pelajaran tanpa memahaminya" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 4,
+        type: 'mc',
+        question: `Dalam Islam, ilmu dibagi menjadi dua macam berdasarkan hukum mempelajarinya. Contoh ilmu yang termasuk kategori fardu 'ain (ilmu pokok agama yang wajib dipelajari setiap muslim agar ibadahnya sah) adalah ....`,
+        options: [
+          { key: 'A', text: "ilmu kedokteran dan kesehatan masyarakat" },
+          { key: 'B', text: "ilmu tata cara salat lima waktu dan bersuci" },
+          { key: 'C', text: "ilmu teknik arsitektur dan pembangunan gedung" },
+          { key: 'D', text: "ilmu perdagangan dan pengelolaan keuangan modern" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 5,
+        type: 'mc',
+        question: `Perhatikan pernyataan-pernyataan berikut tentang ketentuan dan adab mencari ilmu dalam Islam!<ol class="list-decimal pl-6 my-2 space-y-1 text-slate-700"><li>Meniatkan belajar dengan ikhlas karena mengharap rida Allah Swt.</li><li>Menyombongkan kepandaian di hadapan teman yang nilainya rendah.</li><li>Mengamalkan ilmu yang telah dipelajari dalam kehidupan sehari-hari.</li><li>Menyimpan ilmu untuk diri sendiri agar tidak tersaingi orang lain.</li></ol>Pernyataan yang menunjukkan adab terpuji bagi seorang penuntut ilmu ditunjukkan oleh nomor ....`,
+        options: [
+          { key: 'A', text: "1 dan 2" },
+          { key: 'B', text: "1 dan 3" },
+          { key: 'C', text: "2 dan 4" },
+          { key: 'D', text: "3 dan 4" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 6,
+        type: 'mc',
+        question: `Saat membaca Al-Qur'an, kita sering menjumpai tanda-tanda kecil di atas huruf pada akhir atau tengah ayat yang disebut tanda waqaf (tanda berhenti sejenak saat membaca Al-Qur'an). Tujuan utama adanya tanda baca waqaf adalah ....`,
+        options: [
+          { key: 'A', text: "mempercepat bacaan Al-Qur'an agar segera khatam" },
+          { key: 'B', text: "memperindah irama suara pembaca di hadapan pendengar" },
+          { key: 'C', text: "menjaga ketepatan makna ayat agar tidak berubah arti" },
+          { key: 'D', text: "membedakan antara ayat Makkiyah dan ayat Madaniyah" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 7,
+        type: 'mc',
+        question: `Perhatikan potongan Q.S. Al-An'am [6]: 36 berikut ini!<div class="arabic-text">إِنَّمَا يَسْتَجِيبُ الَّذِينَ يَسْمَعُونَ ۘ وَالْمَوْتَىٰ يَبْعَثُهُمُ اللَّهُ</div>Pada lafaz <b>يَسْمَعُونَ</b> terdapat tanda huruf mim kecil ( <b>مـ</b> ) yang dinamakan <i>waqaf lazim</i> (tanda waqaf yang mengharuskan pembaca berhenti). Cara membaca ayat tersebut yang benar adalah ....`,
+        options: [
+          { key: 'A', text: "harus berhenti pada kata yasma'una lalu mengambil napas sebelum melanjutkan" },
+          { key: 'B', text: "dilarang berhenti pada kata yasma'una dan wajib menyambungnya" },
+          { key: 'C', text: "lebih utama menyambung bacaan daripada berhenti pada kata tersebut" },
+          { key: 'D', text: "boleh berhenti pada salah satu dari dua tanda titik tiga yang berdekatan" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 8,
+        type: 'mc',
+        question: `Ketika membaca Al-Qur'an, seorang siswa melihat tanda huruf lam alif kecil ( <b>لا</b> ) di atas sebuah kata. Tanda tersebut dinamakan <i>adamul waqfi</i> (tidak boleh berhenti). Jika tanda tersebut berada di tengah ayat dan napas pembaca masih kuat, maka sikap yang tepat adalah ....`,
+        options: [
+          { key: 'A', text: "menghentikan bacaan sejenak selama dua ketukan" },
+          { key: 'B', text: "meneruskan bacaan tanpa berhenti pada tanda tersebut" },
+          { key: 'C', text: "mengulang bacaan dari awal surah yang sedang dibaca" },
+          { key: 'D', text: "berhenti total dan mengakhiri kegiatan tilawah Al-Qur'an" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 9,
+        type: 'mc',
+        question: `Dalam ilmu tajwid terdapat tanda waqaf <i>al-waqfu aula</i> yang dilambangkan dengan huruf ( <b>قلى</b> ) dan tanda waqaf <i>al-waslu aula</i> yang dilambangkan dengan huruf ( <b>صلى</b> ). Perbedaan cara membaca kedua tanda tersebut adalah ....`,
+        options: [
+          { key: 'A', text: "tanda ( قلى ) dilarang berhenti, sedangkan tanda ( صلى ) wajib berhenti" },
+          { key: 'B', text: "tanda ( قلى ) wajib berhenti, sedangkan tanda ( صلى ) wajib diteruskan" },
+          { key: 'C', text: "tanda ( قلى ) lebih utama berhenti, sedangkan tanda ( صلى ) lebih utama diteruskan" },
+          { key: 'D', text: "tanda ( قلى ) lebih utama diteruskan, sedangkan tanda ( صلى ) lebih utama berhenti" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 10,
+        type: 'mc',
+        question: `Perhatikan Q.S. Al-Baqarah [2]: 2 berikut ini!<div class="arabic-text">ذَٰلِكَ الْكِتَابُ لَا رَيْبَ ۛ فِيهِ ۛ هُدًى لِلْمُتَّقِينَ</div>Tanda titik tiga kembar (<b>ۛ ... ۛ</b>) pada ayat tersebut dinamakan <i>waqaf mu'anaqah</i> (tanda berhenti yang berpasangan). Cara membaca yang sesuai kaidah tajwid pada tanda tersebut adalah ....`,
+        options: [
+          { key: 'A', text: "berhenti pada kedua tanda titik tiga secara berturut-turut" },
+          { key: 'B', text: "tidak boleh berhenti pada kedua tanda titik tiga tersebut" },
+          { key: 'C', text: "berhenti pada salah satu tanda titik tiga saja, bukan keduanya" },
+          { key: 'D', text: "mengulang bacaan sebanyak tiga kali pada kata yang bertanda" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 11,
+        type: 'mc',
+        question: `Meyakini dengan sepenuh hati bahwa seluruh alam semesta beserta isinya pada suatu saat akan mengalami kehancuran total dan berganti dengan kehidupan akhirat yang kekal merupakan pengertian dari ....`,
+        options: [
+          { key: 'A', text: "iman kepada malaikat Allah Swt." },
+          { key: 'B', text: "iman kepada kitab-kitab Allah Swt." },
+          { key: 'C', text: "iman kepada hari akhir (hari kiamat)" },
+          { key: 'D', text: "iman kepada qada dan qadar Allah Swt." }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 12,
+        type: 'mc',
+        question: `Peristiwa hari kiamat dibedakan menjadi dua macam, yaitu kiamat sugra (kiamat kecil) dan kiamat kubra (kiamat besar). Berikut ini yang merupakan contoh peristiwa kiamat kubra adalah ....`,
+        options: [
+          { key: 'A', text: "terjadinya gempa bumi dan tsunami di suatu wilayah pesisir" },
+          { key: 'B', text: "meninggalnya seseorang karena sakit keras atau usia lanjut" },
+          { key: 'C', text: "hancurnya seluruh planet, bintang, dan alam semesta secara menyeluruh" },
+          { key: 'D', text: "musibah kebakaran hutan yang merusak ekosistem di beberapa daerah" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 13,
+        type: 'mc',
+        question: `Pekan lalu, desa tempat tinggal Nabila dilanda banjir bandang yang merusak beberapa rumah warga. Selain itu, tetangga dekat rumahnya juga meninggal dunia secara mendadak karena serangan jantung. Peristiwa-peristiwa tersebut membuat Nabila tersadar bahwa kehidupan di dunia hanyalah sementara. Kejadian yang disaksikan Nabila tersebut termasuk contoh dari ....`,
+        options: [
+          { key: 'A', text: "kiamat sugra (kiamat kecil)" },
+          { key: 'B', text: "kiamat kubra (kiamat besar)" },
+          { key: 'C', text: "yaumul ba'ats (hari kebangkitan)" },
+          { key: 'D', text: "yaumul mahsyar (hari berkumpul)" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 14,
+        type: 'mc',
+        question: `Perhatikan potongan Q.S. Al-Qari'ah [101]: 4-5 berikut ini!<div class="arabic-text">يَوْمَ يَكُونُ النَّاسُ كَالْفَرَاشِ الْمَبْثُوثِ (٤) وَتَكُونُ الْجِبَالُ كَالْعِهْنِ الْمَنْفُوشِ (٥)</div>Gambaran peristiwa hari kiamat yang dijelaskan dalam ayat tersebut adalah ....`,
+        options: [
+          { key: 'A', text: "manusia bersembunyi di dalam gua dan lautan menjadi surut kering" },
+          { key: 'B', text: "manusia seperti laron yang beterbangan dan gunung seperti bulu yang dihamburkan" },
+          { key: 'C', text: "bumi mengeluarkan seluruh harta terpendam dan langit terbelah menjadi dua" },
+          { key: 'D', text: "matahari digulung hingga padam dan bintang-bintang berjatuhan ke bumi" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 15,
+        type: 'mc',
+        question: `Setelah seluruh makhluk dibangkitkan dari alam kubur pada peristiwa <i>Yaumul Ba'ats</i> (hari kebangkitan), seluruh manusia akan digiring dan dikumpulkan di suatu tempat yang sangat luas untuk menunggu pengadilan Allah Swt. Peristiwa berkumpulnya seluruh manusia tersebut dinamakan ....`,
+        options: [
+          { key: 'A', text: "Yaumul Mahsyar (hari berkumpul di padang Mahsyar)" },
+          { key: 'B', text: "Yaumul Barzakh (hari penantian di alam kubur)" },
+          { key: 'C', text: "Yaumul Fasl (hari keputusan antara kebenaran dan kebatilan)" },
+          { key: 'D', text: "Yaumul Wa'id (hari terlaksananya ancaman balasan)" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 16,
+        type: 'mc',
+        question: `Pada hari akhir nanti, setiap amal perbuatan manusia selama hidup di dunia—baik sekecil biji sawi maupun sebesar gunung—akan ditimbang dengan seadil-adilnya. Peristiwa penimbangan amal perbuatan manusia tersebut disebut ....`,
+        options: [
+          { key: 'A', text: "Yaumul Hisab (hari perhitungan amal)" },
+          { key: 'B', text: "Yaumul Mizan (hari penimbangan amal)" },
+          { key: 'C', text: "Yaumul Jaza (hari pembalasan amal)" },
+          { key: 'D', text: "Yaumut Tagabun (hari ditampakkannya kesalahan)" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 17,
+        type: 'mc',
+        question: `Setelah proses perhitungan dan penimbangan amal selesai, seluruh manusia akan melewati <i>Sirat</i> (jembatan yang terbentang di atas neraka menuju surga). Kondisi kecepatan manusia saat melewati Sirat berbeda-beda karena dipengaruhi oleh ....`,
+        options: [
+          { key: 'A', text: "banyaknya harta kekayaan dan jabatan yang dimiliki selama di dunia" },
+          { key: 'B', text: "banyaknya jumlah anggota keluarga yang mendoakan dari dunia" },
+          { key: 'C', text: "kadar keimanan dan amal saleh yang dikerjakan semasa hidup di dunia" },
+          { key: 'D', text: "kepandaian seseorang dalam berbicara membela diri di hadapan manusia" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 18,
+        type: 'mc',
+        question: `Perhatikan pasangan nama lain hari akhir beserta artinya berikut ini!<ol class="list-decimal pl-6 my-2 space-y-1 text-slate-700"><li>Yaumud Din artinya hari pembalasan agama dan amal perbuatan.</li><li>Yaumul Hisab artinya hari dibangkitkannya manusia dari alam kubur.</li><li>Yaumul Jaza artinya hari pemberian balasan sesuai amal perbuatan.</li><li>Yaumul Ba'ats artinya hari ditimbangnya amal baik dan amal buruk.</li></ol>Pasangan nama hari akhir beserta artinya yang tepat ditunjukkan oleh nomor ....`,
+        options: [
+          { key: 'A', text: "1 dan 2" },
+          { key: 'B', text: "1 dan 3" },
+          { key: 'C', text: "2 dan 4" },
+          { key: 'D', text: "3 dan 4" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 19,
+        type: 'mc',
+        question: `Iman kepada hari akhir harus diwujudkan dengan sikap <i>mawas diri</i> (selalu introspeksi dan berhati-hati dalam bersikap agar tidak melanggar aturan agama). Contoh perilaku mawas diri seorang siswa di lingkungan sekolah adalah ....`,
+        options: [
+          { key: 'A', text: "mengerjakan soal ujian secara jujur meskipun tidak diawasi guru" },
+          { key: 'B', text: "membantu teman memberikan jawaban saat ulangan harian berlangsung" },
+          { key: 'C', text: "datang terlambat ke sekolah karena merasa guru tidak akan mencatat" },
+          { key: 'D', text: "menyembunyikan barang milik teman sebagai bahan candaan di kelas" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 20,
+        type: 'mc',
+        question: `Hikmah terbesar yang dirasakan oleh seorang pelajar muslim ketika meyakini datangnya hari akhir dengan sepenuh hati adalah ....`,
+        options: [
+          { key: 'A', text: "meninggalkan seluruh aktivitas belajar karena dunia akan segera hancur" },
+          { key: 'B', text: "takut bergaul dengan masyarakat agar tidak terpengaruh berbuat dosa" },
+          { key: 'C', text: "terdorong untuk rajin beribadah, berbuat kebaikan, dan menjauhi larangan Allah" },
+          { key: 'D', text: "merasa bangga dengan amal ibadahnya sehingga meremehkan orang lain" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 21,
+        type: 'mc',
+        question: `Dalam ajaran Islam, pergaulan antarmanusia diatur oleh etika (tata krama atau aturan perilaku yang baik) agar tercipta kedamaian dan saling menghormati. Tujuan utama Islam mengatur etika pergaulan bagi umatnya adalah ....`,
+        options: [
+          { key: 'A', text: "membatasi manusia agar tidak memiliki banyak teman di luar rumah" },
+          { key: 'B', text: "menjaga kehormatan diri dan mencegah terjadinya permusuhan atau maksiat" },
+          { key: 'C', text: "membedakan status sosial antara orang kaya dan orang miskin" },
+          { key: 'D', text: "mewajibkan umat Islam hanya bergaul dengan keluarga dekat saja" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 22,
+        type: 'mc',
+        question: `Islam mengajarkan prinsip dasar dalam bergaul lintas usia, yaitu menghormati orang yang lebih tua dan menyayangi orang yang lebih muda. Perwujudan sikap yang tepat saat bergaul dengan adik kelas di sekolah adalah ....`,
+        options: [
+          { key: 'A', text: "menyuruh adik kelas mengerjakan tugas piket kelas kita setiap hari" },
+          { key: 'B', text: "berbicara dengan nada tinggi agar adik kelas merasa takut dan segan" },
+          { key: 'C', text: "membimbing, menyapa dengan ramah, dan memberi teladan yang baik" },
+          { key: 'D', text: "mengabaikan adik kelas yang kesulitan mencari ruang kelas baru" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 23,
+        type: 'mc',
+        question: `Dalam pergaulan antara laki-laki dan perempuan yang bukan mahram (orang yang haram dinikahi karena hubungan darah, persusuan, atau pernikahan), Islam melarang perilaku <i>ikhtilat</i> (bercampur baur antara laki-laki dan perempuan tanpa batas syariat). Salah satu contoh menjaga batasan pergaulan yang sesuai ajaran Islam adalah ....`,
+        options: [
+          { key: 'A', text: "berduaan di tempat sepi untuk membicarakan tugas kelompok sekolah" },
+          { key: 'B', text: "menjaga pandangan, menutup aurat, dan berkomunikasi seperlunya secara sopan" },
+          { key: 'C', text: "bersenda gurau secara berlebihan hingga menyentuh lawan jenis" },
+          { key: 'D', text: "menolak bekerja sama dalam kegiatan sosial resmi di lingkungan sekolah" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 24,
+        type: 'mc',
+        question: `Suatu sore, Dimas menerima pesan berantai di grup percakapan kelas yang menyebutkan bahwa salah satu temannya dituduh mengambil uang kas kelas. Sebelum meneruskan pesan tersebut atau ikut berkomentar buruk, Dimas menemui bendahara kelas dan teman yang dituduh untuk menanyakan kebenaran berita itu secara langsung. Ternyata, uang kas tersebut hanya terselip di map bendahara. Sikap yang dilakukan Dimas disebut <i>tabayyun</i>, yang artinya ....`,
+        options: [
+          { key: 'A', text: "menyebarkan berita dengan cepat agar teman-teman segera tahu" },
+          { key: 'B', text: "memeriksa dan meneliti kebenaran suatu berita sebelum memercayainya" },
+          { key: 'C', text: "membicarakan keburukan orang lain di belakang yang bersangkutan" },
+          { key: 'D', text: "menyembunyikan kesalahan teman agar tidak dihukum oleh guru" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 25,
+        type: 'mc',
+        question: `Perhatikan potongan Q.S. Al-Isra' [17]: 23 berikut ini!<div class="arabic-text">فَلَا تَقُلْ لَهُمَا أُفٍّ وَلَا تَنْهَرْهُمَا وَقُلْ لَهُمَا قَوْلًا كَرِيمًا</div>Ayat tersebut memerintahkan setiap anak untuk menerapkan prinsip <i>qaulan karima</i> ketika berbicara dengan kedua orang tua. Makna dari istilah <i>qaulan karima</i> adalah ....`,
+        options: [
+          { key: 'A', text: "perkataan yang mulia, santun, dan penuh rasa hormat" },
+          { key: 'B', text: "perkataan yang tegas, keras, dan penuh dengan peringatan" },
+          { key: 'C', text: "perkataan yang panjang lebar agar mudah dipahami pendengar" },
+          { key: 'D', text: "perkataan yang mengandung candaan untuk mencairkan suasana" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 26,
+        type: 'mc',
+        question: `Dalam berkomunikasi sehari-hari, seorang muslim diperintahkan untuk menerapkan <i>qaulan sadida</i> (perkataan yang benar, jujur, dan lurus). Contoh penerapan <i>qaulan sadida</i> bagi seorang pelajar adalah ....`,
+        options: [
+          { key: 'A', text: "menyampaikan alasan yang sebenarnya ketika terlambat datang ke sekolah" },
+          { key: 'B', text: "melebih-lebihkan cerita agar teman-teman merasa kagum kepada kita" },
+          { key: 'C', text: "memberikan janji kepada teman meskipun tahu tidak sanggup menepatinya" },
+          { key: 'D', text: "menyembunyikan nilai ulangan yang kurang baik dari orang tua di rumah" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 27,
+        type: 'mc',
+        question: `Ketika hendak menasihati teman yang melakukan kesalahan agar ia mau berubah menjadi lebih baik, Islam mengajarkan prinsip <i>qaulan layyina</i>, yaitu ....`,
+        options: [
+          { key: 'A', text: "perkataan yang lemah lembut dan menyentuh hati tanpa menyinggung" },
+          { key: 'B', text: "perkataan yang menyindir secara halus di depan orang banyak" },
+          { key: 'C', text: "perkataan yang langsung menyalahkan agar teman merasa jera" },
+          { key: 'D', text: "perkataan yang singkat tanpa memberikan penjelasan sama sekali" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 28,
+        type: 'mc',
+        question: `Perhatikan pernyataan-pernyataan berikut tentang etika berkomunikasi di media sosial!<ol class="list-decimal pl-6 my-2 space-y-1 text-slate-700"><li>Menghindari ghibah (membicarakan aib atau keburukan orang lain) di kolom komentar.</li><li>Menggunakan kata-kata santun dan tidak menyinggung suku, agama, atau ras.</li><li>Langsung membagikan informasi sensasional tanpa memeriksa sumber beritanya.</li><li>Menyebarkan foto pribadi teman tanpa izin untuk dijadikan bahan lelucon.</li></ol>Etika berkomunikasi di media sosial yang sesuai dengan ajaran Islam ditunjukkan oleh nomor ....`,
+        options: [
+          { key: 'A', text: "1 dan 2" },
+          { key: 'B', text: "1 dan 4" },
+          { key: 'C', text: "2 dan 3" },
+          { key: 'D', text: "3 dan 4" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 29,
+        type: 'mc',
+        question: `Saat ada teman yang mengajak bermain gim daring padahal waktu salat Asar sudah tiba, Rina menolaknya dengan kalimat yang baik, sopan, dan tidak menyakiti perasaan temannya. Sikap Rina tersebut mencerminkan prinsip <i>qaulan ma'rufa</i>, yang artinya ....`,
+        options: [
+          { key: 'A', text: "perkataan yang baik, pantas, dan sesuai dengan norma kesopanan" },
+          { key: 'B', text: "perkataan yang berat dan penuh dengan istilah ilmiah yang rumit" },
+          { key: 'C', text: "perkataan yang diucapkan dengan suara lantang di tempat umum" },
+          { key: 'D', text: "perkataan yang bertujuan membela diri sendiri di hadapan orang lain" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 30,
+        type: 'mc',
+        question: `Manfaat positif yang akan diperoleh seseorang apabila membiasakan etika pergaulan dan komunikasi Islami dalam kehidupan bermasyarakat adalah ....`,
+        options: [
+          { key: 'A', text: "dijauhi oleh teman sebaya karena dianggap terlalu kaku dalam bergaul" },
+          { key: 'B', text: "terjalin hubungan persaudaraan yang harmonis dan terhindar dari konflik" },
+          { key: 'C', text: "selalu mendapatkan keuntungan materi dari setiap orang yang dikenal" },
+          { key: 'D', text: "bebas melakukan segala keinginan tanpa memperhatikan perasaan orang lain" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 31,
+        type: 'mc',
+        question: `Penyembelihan hewan ternak (kambing atau domba) sebagai wujud rasa syukur kepada Allah Swt. atas kelahiran seorang anak disebut ibadah akikah. Hukum melaksanakan akikah bagi orang tua yang mampu adalah ....`,
+        options: [
+          { key: 'A', text: "wajib 'ain (wajib atas setiap muslim tanpa terkecuali)" },
+          { key: 'B', text: "sunah muakkad (sunah yang sangat dianjurkan oleh Rasulullah saw.)" },
+          { key: 'C', text: "mubah (boleh dikerjakan dan boleh ditinggalkan tanpa anjuran)" },
+          { key: 'D', text: "fardu kifayah (gugur kewajibannya jika tetangga sudah melaksanakan)" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 32,
+        type: 'mc',
+        question: `Ketentuan jumlah hewan akikah yang disunahkan oleh Rasulullah saw. berbeda antara anak laki-laki dan anak perempuan, yaitu ....`,
+        options: [
+          { key: 'A', text: "1 ekor kambing untuk anak laki-laki dan 2 ekor kambing untuk anak perempuan" },
+          { key: 'B', text: "2 ekor kambing untuk anak laki-laki dan 1 ekor kambing untuk anak perempuan" },
+          { key: 'C', text: "2 ekor kambing untuk anak laki-laki dan 2 ekor kambing untuk anak perempuan" },
+          { key: 'D', text: "1 ekor kambing untuk anak laki-laki dan 1 ekor kambing untuk anak perempuan" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 33,
+        type: 'mc',
+        question: `Waktu pelaksanaan penyembelihan hewan akikah yang paling utama sesuai sunah Nabi Muhammad saw. adalah pada hari ke-.... setelah kelahiran bayi.`,
+        options: [
+          { key: 'A', text: "3" },
+          { key: 'B', text: "7" },
+          { key: 'C', text: "14" },
+          { key: 'D', text: "40" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 34,
+        type: 'mc',
+        question: `Keluarga Pak Ahmad baru saja dikaruniai anak kembar, terdiri atas satu anak laki-laki dan satu anak perempuan. Sebagai ungkapan rasa syukur kepada Allah Swt., Pak Ahmad berniat melaksanakan ibadah akikah pada hari ketujuh kelahiran kedua anaknya tersebut. Jumlah kambing yang disunahkan untuk disembelih oleh Pak Ahmad beserta cara pembagian dagingnya yang paling utama adalah ....`,
+        options: [
+          { key: 'A', text: "2 ekor kambing dan dibagikan dalam keadaan daging mentah" },
+          { key: 'B', text: "3 ekor kambing dan dibagikan dalam keadaan sudah dimasak" },
+          { key: 'C', text: "4 ekor kambing dan dibagikan dalam keadaan daging mentah" },
+          { key: 'D', text: "3 ekor kambing dan seluruh dagingnya dimakan sendiri oleh keluarga" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 35,
+        type: 'mc',
+        question: `Perhatikan Q.S. Al-Kautsar [108]: 2 berikut ini!<div class="arabic-text">فَصَلِّ لِرَبِّكَ وَانْحَرْ</div>Ayat tersebut berisi perintah Allah Swt. kepada umat Islam untuk mendirikan salat dan melaksanakan ibadah ....`,
+        options: [
+          { key: 'A', text: "akikah" },
+          { key: 'B', text: "zakat fitrah" },
+          { key: 'C', text: "kurban (udhiyah)" },
+          { key: 'D', text: "sedekah jariyah" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 36,
+        type: 'mc',
+        question: `Ibadah kurban tidak dapat dilaksanakan pada sembarang hari sepanjang tahun. Waktu pelaksanaan penyembelihan hewan kurban dimulai setelah salat Iduladha tanggal 10 Zulhijah hingga terbenamnya matahari pada tanggal ....`,
+        options: [
+          { key: 'A', text: "11 Zulhijah" },
+          { key: 'B', text: "12 Zulhijah" },
+          { key: 'C', text: "13 Zulhijah (akhir hari Tasyrik)" },
+          { key: 'D', text: "15 Zulhijah" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 37,
+        type: 'mc',
+        question: `Agar ibadah kurban dinilai sah secara syariat, hewan ternak yang akan disembelih harus memenuhi syarat tertentu. Berikut ini yang merupakan syarat sah hewan kurban adalah ....`,
+        options: [
+          { key: 'A', text: "hewan harus berjenis kelamin betina yang sedang mengandung" },
+          { key: 'B', text: "hewan ternak cukup umur, sehat, dan tidak memiliki cacat fisik yang nyata" },
+          { key: 'C', text: "hewan boleh berupa unggas seperti ayam atau itik jika tidak mampu beli kambing" },
+          { key: 'D', text: "hewan harus dibeli dari luar daerah dengan harga yang paling mahal" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 38,
+        type: 'mc',
+        question: `Perhatikan pernyataan-pernyataan berikut tentang perbedaan ibadah akikah dan kurban!<ol class="list-decimal pl-6 my-2 space-y-1 text-slate-700"><li>Akikah dilaksanakan berkaitan dengan kelahiran anak, sedangkan kurban dilaksanakan pada bulan Zulhijah.</li><li>Daging akikah disunahkan dibagikan dalam kondisi sudah dimasak, sedangkan daging kurban dibagikan dalam kondisi mentah.</li><li>Hewan akikah boleh berupa sapi untuk 7 orang, sedangkan hewan kurban hanya boleh berupa kambing.</li><li>Hukum melaksanakan akikah adalah wajib bagi setiap muslim, sedangkan hukum kurban adalah mubah.</li></ol>Pernyataan yang benar mengenai perbedaan akikah dan kurban ditunjukkan oleh nomor ....`,
+        options: [
+          { key: 'A', text: "1 dan 2" },
+          { key: 'B', text: "1 dan 3" },
+          { key: 'C', text: "2 dan 4" },
+          { key: 'D', text: "3 dan 4" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 39,
+        type: 'mc',
+        question: `Ketentuan pembagian daging hewan kurban yang paling utama menurut syariat Islam adalah dibagi menjadi tiga bagian yang sama besar, yaitu untuk ....`,
+        options: [
+          { key: 'A', text: "orang yang berkurban, pengurus masjid, dan panitia penyembelihan" },
+          { key: 'B', text: "orang yang berkurban, kerabat atau tetangga, dan fakir miskin" },
+          { key: 'C', text: "fakir miskin, musafir yang lewat, dan dijual untuk kas masjid" },
+          { key: 'D', text: "keluarga besar yang berkurban seluruhnya tanpa dibagikan keluar" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 40,
+        type: 'mc',
+        question: `Nilai kepedulian sosial yang dapat dipetik dari pelaksanaan ibadah akikah dan kurban di tengah masyarakat adalah ....`,
+        options: [
+          { key: 'A', text: "menunjukkan kemampuan ekonomi keluarga kepada tetangga sekitar" },
+          { key: 'B', text: "mempererat tali persaudaraan dan membantu fakir miskin merasakan makanan bergizi" },
+          { key: 'C', text: "mengurangi jumlah populasi hewan ternak agar tidak merusak lingkungan" },
+          { key: 'D', text: "menggantikan kewajiban membayar zakat mal bagi orang-orang yang kaya" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 41,
+        type: 'mc',
+        question: `Daulah Usmani (Kesultanan Utsmaniyah) merupakan salah satu kerajaan Islam terbesar yang pernah berdiri dan wilayahnya membentang di tiga benua (Asia, Eropa, dan Afrika). Pendiri pertama Daulah Usmani adalah ....`,
+        options: [
+          { key: 'A', text: "Ertugrul bin Sulaiman Syah" },
+          { key: 'B', text: "Usman I bin Ertugrul" },
+          { key: 'C', text: "Sultan Muhammad II Al-Fatih" },
+          { key: 'D', text: "Sultan Sulaiman I Al-Qanuni" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 42,
+        type: 'mc',
+        question: `Pada tahun 1453 M, Daulah Usmani berhasil menaklukkan kota Konstantinopel yang sebelumnya merupakan pusat kekuasaan Kekaisaran Romawi Timur, lalu mengubah namanya menjadi Istanbul. Sultan Daulah Usmani yang memimpin penaklukan bersejarah tersebut adalah ....`,
+        options: [
+          { key: 'A', text: "Sultan Bayazid I" },
+          { key: 'B', text: "Sultan Murad II" },
+          { key: 'C', text: "Sultan Muhammad II (bergelar Al-Fatih, artinya Sang Penakluk)" },
+          { key: 'D', text: "Sultan Salim I" }
+        ],
+        answer: 'C'
+      },
+      {
+        id: 43,
+        type: 'mc',
+        question: `Masa puncak kejayaan dan keemasan Daulah Usmani terjadi pada masa pemerintahan Sultan Sulaiman I. Beliau mendapat gelar <i>Al-Qanuni</i> (Sang Pembuat Undang-Undang) karena jasanya dalam ....`,
+        options: [
+          { key: 'A', text: "menaklukkan seluruh wilayah benua Amerika dan Australia" },
+          { key: 'B', text: "menyusun dan menertibkan sistem hukum serta perundang-undangan negara" },
+          { key: 'C', text: "menghapuskan seluruh pajak perdagangan di wilayah laut Tengah" },
+          { key: 'D', text: "membangun benteng pertahanan di sepanjang perbatasan Tiongkok" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 44,
+        type: 'mc',
+        question: `Saat mengikuti program pertukaran pelajar di kota Istanbul, Turki, Farhan berkesempatan mengunjungi Masjid Biru (Sultan Ahmed Mosque) dan bangunan bersejarah Hagia Sophia. Ia sangat kagum melihat kemegahan kubah besar, menara yang menjulang tinggi, serta keindahan seni kaligrafi di dalamnya. Peninggalan bersejarah yang dikagumi Farhan tersebut merupakan bukti kemajuan Daulah Usmani dalam bidang ....`,
+        options: [
+          { key: 'A', text: "ilmu kedokteran dan farmasi" },
+          { key: 'B', text: "seni arsitektur dan pembangunan" },
+          { key: 'C', text: "ilmu kelautan dan perkapalan" },
+          { key: 'D', text: "sistem pertanian dan irigasi" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 45,
+        type: 'mc',
+        question: `Kekuatan militer Daulah Usmani sangat disegani oleh bangsa-bangsa Eropa pada masa kejayaannya. Salah satu faktor utama kekuatan militer tersebut adalah dibentuknya pasukan elite infanteri yang terlatih dan disiplin tinggi yang bernama ....`,
+        options: [
+          { key: 'A', text: "Janissari (pasukan baru yang terlatih khusus)" },
+          { key: 'B', text: "Mamluk (pasukan budak yang dimerdekakan)" },
+          { key: 'C', text: "Firqah (pasukan berkuda dari wilayah pedalaman)" },
+          { key: 'D', text: "Ansar (pasukan penolong penduduk asli kota)" }
+        ],
+        answer: 'A'
+      },
+      {
+        id: 46,
+        type: 'mc',
+        question: `Pada masa pemerintahan Sultan Sulaiman Al-Qanuni, disusun sebuah kitab undang-undang yang menjadi pedoman hukum bagi seluruh wilayah kekuasaan Daulah Usmani dengan memadukan hukum syariat Islam dan peraturan negara. Kitab undang-undang tersebut dikenal dengan nama ....`,
+        options: [
+          { key: 'A', text: "Al-Qanun fi at-Tibb" },
+          { key: 'B', text: "Multaqa al-Abhur" },
+          { key: 'C', text: "Ihya Ulumuddin" },
+          { key: 'D', text: "Muqaddimah" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 47,
+        type: 'mc',
+        question: `Perhatikan pernyataan-pernyataan berikut mengenai kondisi Daulah Usmani pada abad ke-18 hingga awal abad ke-20!<ol class="list-decimal pl-6 my-2 space-y-1 text-slate-700"><li>Wilayah kekuasaan yang terlalu luas sehingga sulit dikendalikan oleh pemerintah pusat.</li><li>Kepemimpinan sultan-sultan terakhir yang lemah dan kurang cakap dalam memerintah.</li><li>Pesatnya kemajuan teknologi industri yang mengalahkan seluruh negara Eropa.</li><li>Munculnya berbagai gerakan pemberontakan dan perpecahan di wilayah kekuasaan.</li></ol>Faktor-faktor yang menyebabkan kemunduran dan keruntuhan Daulah Usmani ditunjukkan oleh nomor ....`,
+        options: [
+          { key: 'A', text: "1, 2, dan 3" },
+          { key: 'B', text: "1, 2, dan 4" },
+          { key: 'C', text: "1, 3, dan 4" },
+          { key: 'D', text: "2, 3, dan 4" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 48,
+        type: 'mc',
+        question: `Setelah berhasil menguasai wilayah Hijaz (Makkah dan Madinah), para sultan Daulah Usmani menyandang gelar kehormatan <i>Khadimul Haramain</i>, yang artinya adalah ....`,
+        options: [
+          { key: 'A', text: "Penakluk Dua Benua Besar" },
+          { key: 'B', text: "Pelayan Dua Tanah Suci (Makkah dan Madinah)" },
+          { key: 'C', text: "Pemimpin Seluruh Pasukan Perang" },
+          { key: 'D', text: "Penjaga Selat Bosporus dan Laut Hitam" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 49,
+        type: 'mc',
+        question: `Dalam memerintah wilayah yang dihuni oleh masyarakat dari berbagai latar belakang agama dan suku bangsa, Daulah Usmani menerapkan sistem <i>Millet</i> (sistem otonomi bagi komunitas non-muslim untuk menjalankan ajaran agama dan hukum keluarganya masing-masing). Sikap keteladanan yang dapat diambil pelajar dari kebijakan tersebut adalah ....`,
+        options: [
+          { key: 'A', text: "memaksakan keyakinan sendiri kepada teman yang berbeda agama" },
+          { key: 'B', text: "menjunjung tinggi sikap toleransi dan menghormati keberagaman" },
+          { key: 'C', text: "memisahkan diri dari pergaulan masyarakat yang berbeda budaya" },
+          { key: 'D', text: "mengutamakan kepentingan kelompok sendiri di atas kepentingan umum" }
+        ],
+        answer: 'B'
+      },
+      {
+        id: 50,
+        type: 'mc',
+        question: `Pelajaran berharga (ibrah) yang dapat dipetik oleh generasi muda Islam masa kini dari peristiwa kemunduran dan keruntuhan Daulah Usmani adalah ....`,
+        options: [
+          { key: 'A', text: "kejayaan suatu bangsa akan bertahan selamanya tanpa perlu kerja keras" },
+          { key: 'B', text: "kekuatan militer saja sudah cukup tanpa perlu menguasai ilmu pengetahuan" },
+          { key: 'C', text: "persatuan, kepemimpinan yang jujur, dan penguasaan ilmu sangat menentukan kemajuan bangsa" },
+          { key: 'D', text: "wilayah negara yang kecil lebih mudah mengalami perpecahan daripada wilayah yang luas" }
+        ],
+        answer: 'C'
+      }
+    ];
 
-        // ==========================================
-        // KOMPONEN MODAL GLOBAL (DI LUAR APP)
-        // ==========================================
-        const StaticModal = ({ isOpen, type, title, message, onConfirm, onCancel, confirmText="OK", cancelText="Batal" }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all">
-                        <div className="flex flex-col items-center text-center">
-                            {type === 'alert' && <div className="mb-4"><IconAlertTriangle /></div>}
-                            <h3 className={`text-2xl font-bold mb-2 ${type==='alert' ? 'text-red-600' : 'text-gray-800'}`}>{title}</h3>
-                            <p className="text-gray-600 mb-6">{message}</p>
-                            <div className="flex gap-4 w-full">
-                                {onCancel && (
-                                    <button onClick={onCancel} className="flex-1 px-4 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold transition-colors">
-                                        {cancelText}
-                                    </button>
-                                )}
-                                <button onClick={onConfirm} className={`flex-1 px-4 py-3 rounded-lg text-white font-semibold transition-colors ${type==='alert' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                    {confirmText}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+    // =========================================================================
+    // HELPER: FISHER-YATES SHUFFLE & FORMAT WAKTU
+    // =========================================================================
+    function fisherYatesShuffle(array) {
+      const copy = [...array];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function prepareShuffledExam(questions) {
+      const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+      const shuffledQuestions = fisherYatesShuffle(questions);
+      return shuffledQuestions.map((q) => {
+        if (q.type === 'mc' || q.type === 'mc_complex') {
+          const shuffledOpts = fisherYatesShuffle(q.options || []).map((opt, idx) => ({
+            ...opt,
+            displayKey: optionLetters[idx] || String(idx + 1)
+          }));
+          return { ...q, shuffledOptions: shuffledOpts };
+        }
+        return { ...q };
+      });
+    }
+
+    function formatTime(totalSeconds) {
+      const hrs = Math.floor(totalSeconds / 3600);
+      const mins = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      if (hrs > 0) {
+        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function getTodayDateString() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset();
+      const localDate = new Date(now.getTime() - offset * 60 * 1000);
+      return localDate.toISOString().split('T')[0];
+    }
+
+    // =========================================================================
+    // KOMPONEN IKON INLINE SVG MURNI (ANTI-CRASH REACT 18)
+    // =========================================================================
+    function Icon({ name, className = "w-5 h-5" }) {
+      switch (name) {
+        case 'book':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          );
+        case 'clock':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          );
+        case 'shield':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          );
+        case 'alert':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          );
+        case 'check':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          );
+        case 'checkCircle':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          );
+        case 'chevronLeft':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          );
+        case 'chevronRight':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          );
+        case 'send':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          );
+        case 'user':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          );
+        case 'refresh':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          );
+        case 'grid':
+          return (
+            <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          );
+        default:
+          return null;
+      }
+    }
+
+    // =========================================================================
+    // KOMPONEN CUSTOM MODAL DI LUAR SCOPE APP (ANTI-FLICKER SAAT TIMER TICK)
+    // =========================================================================
+    function AlertModal({ isOpen, title, message, type = 'warning', buttonText = 'Saya Mengerti', onClose }) {
+      if (!isOpen) return null;
+
+      const isDanger = type === 'danger';
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-fadeIn">
+            <div className={`px-6 py-4 flex items-center gap-3 ${isDanger ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'}`}>
+              <Icon name="alert" className="w-7 h-7 shrink-0" />
+              <h3 className="text-lg font-bold tracking-tight">{title}</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-700 text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                {message}
+              </p>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`px-5 py-2.5 rounded-xl font-semibold text-white shadow-md transition active:scale-95 ${
+                    isDanger
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-sky-600 hover:bg-sky-700'
+                  }`}
+                >
+                  {buttonText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ConfirmModal({ isOpen, title, message, confirmText = 'Ya, Lanjutkan', cancelText = 'Batal', isDanger = false, onConfirm, onCancel }) {
+      if (!isOpen) return null;
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+            <div className={`px-6 py-4 flex items-center gap-3 ${isDanger ? 'bg-red-600 text-white' : 'bg-sky-700 text-white'}`}>
+              <Icon name={isDanger ? 'alert' : 'checkCircle'} className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-bold tracking-tight">{title}</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-700 text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                {message}
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="px-4 py-2.5 rounded-xl font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-95"
+                >
+                  {cancelText}
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  className={`px-5 py-2.5 rounded-xl font-semibold text-white shadow-md transition active:scale-95 ${
+                    isDanger
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                >
+                  {confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // KOMPONEN HEADER APLIKASI
+    // =========================================================================
+    function AppHeader({ student, timeLeft, violations, isExamActive }) {
+      const isLowTime = timeLeft !== null && timeLeft <= 300;
+      return (
+        <header className="bg-white/95 backdrop-blur-md shadow-lg border-b border-sky-200 sticky top-0 z-30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-700 text-white flex items-center justify-center shadow-md shrink-0">
+                <Icon name="book" className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-tight">
+                  {EXAM_CONFIG.subject}
+                </h1>
+                <p className="text-xs sm:text-sm font-semibold text-sky-700">
+                  {EXAM_CONFIG.examType} &bull; Kelas {EXAM_CONFIG.grade}
+                </p>
+              </div>
+            </div>
+
+            {isExamActive && student && (
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                <div className="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs sm:text-sm text-slate-700 font-medium flex items-center gap-1.5">
+                  <Icon name="user" className="w-4 h-4 text-sky-600" />
+                  <span className="font-bold text-slate-900 truncate max-w-[140px] sm:max-w-[200px]">
+                    {student.nama}
+                  </span>
+                  <span className="text-slate-400">|</span>
+                  <span>{student.kelas}</span>
                 </div>
-            );
-        };
 
-        // ==========================================
-        // KOMPONEN UTAMA APP
-        // ==========================================
-        const App = () => {
-            const [appState, setAppState] = useState('loading'); // loading, login, resume, exam, finished
-            const [student, setStudent] = useState({ nama: '', kelas: '', tanggal: new Date().toISOString().split('T')[0] });
-            const [examData, setExamData] = useState(null);
-            const [currentIdx, setCurrentIdx] = useState(0);
-            
-            const [modalConfig, setModalConfig] = useState({ isOpen: false });
-            const examDataRef = useRef(null); // Ref for accurate auto-submit closure
-
-            // Initialize App
-            useEffect(() => {
-                const saved = localStorage.getItem(STORAGE_KEY);
-                if (saved) {
-                    setAppState('resume');
-                } else {
-                    setAppState('login');
-                }
-            }, []);
-
-            // Auto-Save Effect
-            useEffect(() => {
-                if (appState === 'exam' && examData) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ student, examData }));
-                    examDataRef.current = examData;
-                }
-            }, [examData, appState, student]);
-
-            // Timer Tick
-            useEffect(() => {
-                let timerId;
-                if (appState === 'exam' && examData && examData.timeLeft > 0) {
-                    timerId = setInterval(() => {
-                        setExamData(prev => {
-                            if (prev.timeLeft <= 1) {
-                                clearInterval(timerId);
-                                handleAutoSubmit('Waktu Habis');
-                                return { ...prev, timeLeft: 0 };
-                            }
-                            return { ...prev, timeLeft: prev.timeLeft - 1 };
-                        });
-                    }, 1000);
-                }
-                return () => clearInterval(timerId);
-            }, [appState]);
-
-            // Anti-Cheat Handlers
-            useEffect(() => {
-                if (appState !== 'exam') return;
-
-                const handleContextMenu = (e) => e.preventDefault();
-                const handleCopy = (e) => e.preventDefault();
-                
-                const triggerViolation = () => {
-                    setExamData(prev => {
-                        const newViolations = prev.violations + 1;
-                        if (newViolations === 1) {
-                            setModalConfig({
-                                isOpen: true, type: 'alert', title: 'PERINGATAN KECURANGAN!',
-                                message: 'Anda terdeteksi keluar layar ujian atau pindah tab. Ini adalah peringatan pertama. Jika diulangi, ujian akan otomatis dikumpulkan!',
-                                confirmText: 'Saya Mengerti',
-                                onConfirm: () => {
-                                    setModalConfig({ isOpen: false });
-                                    document.documentElement.requestFullscreen().catch(()=>console.log("FS error"));
-                                }
-                            });
-                        } else if (newViolations >= 2) {
-                            setModalConfig({
-                                isOpen: true, type: 'alert', title: 'UJIAN DIHENTIKAN!',
-                                message: 'Anda telah melakukan pelanggaran kedua. Ujian otomatis dikumpulkan.',
-                                confirmText: 'Tutup',
-                                onConfirm: () => {
-                                    setModalConfig({ isOpen: false });
-                                    handleAutoSubmit('Dihentikan sistem (Indikasi Kecurangan)');
-                                }
-                            });
-                        }
-                        return { ...prev, violations: newViolations };
-                    });
-                };
-
-                const handleVisibility = () => { if (document.hidden) triggerViolation(); };
-                const handleFullscreen = () => { if (!document.fullscreenElement) triggerViolation(); };
-
-                document.addEventListener('contextmenu', handleContextMenu);
-                document.addEventListener('copy', handleCopy);
-                document.addEventListener('visibilitychange', handleVisibility);
-                document.addEventListener('fullscreenchange', handleFullscreen);
-
-                return () => {
-                    document.removeEventListener('contextmenu', handleContextMenu);
-                    document.removeEventListener('copy', handleCopy);
-                    document.removeEventListener('visibilitychange', handleVisibility);
-                    document.removeEventListener('fullscreenchange', handleFullscreen);
-                };
-            }, [appState]);
-
-            // ==========================================
-            // AKSI LOGIKA
-            // ==========================================
-            const startNewExam = async () => {
-                try { await document.documentElement.requestFullscreen(); } catch (e) { console.log(e); }
-                
-                // Acak Soal dan Opsi
-                let shuffled = shuffleArray(rawQuestionsData).map(q => {
-                    if (q.type === 'mc') {
-                        return { ...q, options: shuffleArray(q.options) };
-                    }
-                    return q;
-                });
-
-                setExamData({
-                    questions: shuffled,
-                    answers: {}, // id: selectedOption
-                    timeLeft: IDENTITAS_UJIAN.durasi * 60,
-                    violations: 0
-                });
-                setAppState('exam');
-                setCurrentIdx(0);
-            };
-
-            const resumeExam = async () => {
-                try { await document.documentElement.requestFullscreen(); } catch (e) { console.log(e); }
-                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-                setStudent(saved.student);
-                setExamData(saved.examData);
-                setAppState('exam');
-                setCurrentIdx(0);
-            };
-
-            const resetExam = () => {
-                localStorage.removeItem(STORAGE_KEY);
-                setAppState('login');
-            };
-
-            const handleAnswer = (questionId, optionId) => {
-                setExamData(prev => ({
-                    ...prev, answers: { ...prev.answers, [questionId]: optionId }
-                }));
-            };
-
-            const handleAutoSubmit = (keterangan = 'Selesai Normal') => {
-                // Gunakan ref untuk bypass closure issues
-                const currentData = examDataRef.current || examData; 
-                submitData(currentData, keterangan);
-            };
-
-            const confirmSubmit = () => {
-                setModalConfig({
-                    isOpen: true, type: 'confirm', title: 'Kumpulkan Ujian?',
-                    message: 'Pastikan semua soal telah dijawab. Apakah Anda yakin ingin mengumpulkan sekarang?',
-                    confirmText: 'Ya, Kumpulkan', cancelText: 'Batal',
-                    onConfirm: () => {
-                        setModalConfig({ isOpen: false });
-                        handleAutoSubmit('Selesai Normal');
-                    },
-                    onCancel: () => setModalConfig({ isOpen: false })
-                });
-            };
-
-            const submitData = (data, keterangan) => {
-                setAppState('loading');
-                
-                // Hitung Skor & Analisis Runtut (berdasarkan urutan asli 1-N)
-                let benar = 0;
-                let rincianArr = [];
-                
-                // Sort by original ID to make it sequential
-                const sortedQuestions = [...data.questions].sort((a, b) => a.id - b.id);
-                
-                sortedQuestions.forEach(q => {
-                    const ans = data.answers[q.id];
-                    if (!ans) {
-                        rincianArr.push(`Soal ${q.id}: KOSONG`);
-                    } else if (ans === q.answer) {
-                        benar++;
-                        rincianArr.push(`Soal ${q.id}: BENAR`);
-                    } else {
-                        rincianArr.push(`Soal ${q.id}: SALAH (Pilih: ${ans}, Kunci: ${q.answer})`);
-                    }
-                });
-
-                const skor = Math.round((benar / rawQuestionsData.length) * 100);
-                const rincianJawaban = rincianArr.join(" | ");
-
-                const payload = {
-                    nama: student.nama,
-                    kelas: student.kelas,
-                    tanggal: student.tanggal,
-                    skor: skor,
-                    pelanggaran: data.violations,
-                    keterangan: keterangan,
-                    rincianJawaban: rincianJawaban
-                };
-
-                // Kirim ke Google Sheets
-                if (GOOGLE_SHEETS_WEB_APP_URL !== "URL_APPS_SCRIPT_ANDA") {
-                    fetch(GOOGLE_SHEETS_WEB_APP_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify(payload)
-                    }).catch(e => console.log("Gagal ngirim, tapi data dihitung:", e));
-                }
-                
-                // Bersihkan
-                localStorage.removeItem(STORAGE_KEY);
-                if (document.fullscreenElement) {
-                    document.exitFullscreen().catch(e=>console.log(e));
-                }
-                setAppState('finished');
-            };
-
-            const formatTime = (seconds) => {
-                const h = Math.floor(seconds / 3600);
-                const m = Math.floor((seconds % 3600) / 60);
-                const s = seconds % 60;
-                if(h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-            };
-
-            // ==========================================
-            // RENDER BLOCKS
-            // ==========================================
-            if (appState === 'loading') {
-                return <div className="min-h-screen flex items-center justify-center"><h2 className="text-xl animate-pulse">Memuat Sistem...</h2></div>;
-            }
-
-            if (appState === 'resume') {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 p-4">
-                        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Sesi Ujian Tersimpan Ditemukan!</h2>
-                            <p className="text-gray-600 mb-6">Sistem mendeteksi Anda belum menyelesaikan ujian sebelumnya. Silakan pilih aksi di bawah ini.</p>
-                            <div className="flex flex-col gap-3">
-                                <button onClick={resumeExam} className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition">Lanjutkan Ujian</button>
-                                <button onClick={resetExam} className="w-full py-3 border border-red-500 text-red-600 font-bold rounded-lg hover:bg-red-50 transition">Mulai Ulang (Hapus Progres)</button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (appState === 'login') {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-500 to-blue-600 p-4">
-                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-md w-full">
-                            <div className="bg-gray-50 p-6 text-center border-b">
-                                <h1 className="text-2xl font-bold text-gray-800">{IDENTITAS_UJIAN.mapel}</h1>
-                                <p className="text-sm text-gray-500 mt-1">{IDENTITAS_UJIAN.jenis} • Kelas {IDENTITAS_UJIAN.kelas}</p>
-                            </div>
-                            <div className="p-6">
-                                <form onSubmit={(e) => { e.preventDefault(); startNewExam(); }} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Nama Lengkap</label>
-                                        <input required type="text" value={student.nama} onChange={e=>setStudent({...student, nama: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan nama..." />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Kelas</label>
-                                        <input required type="text" value={student.kelas} onChange={e=>setStudent({...student, kelas: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: XI IPA 1" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Tanggal Ujian</label>
-                                        <input required type="date" value={student.tanggal} onChange={e=>setStudent({...student, tanggal: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
-                                    </div>
-                                    <button type="submit" className="w-full py-3 mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-lg shadow-md hover:opacity-90 transition">
-                                        Mulai Ujian
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
-            if (appState === 'finished') {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 text-center">
-                        <div className="bg-white rounded-2xl shadow-xl p-10 max-w-lg w-full">
-                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600">
-                                <IconCheck />
-                            </div>
-                            <h2 className="text-3xl font-bold text-gray-800 mb-2">Ujian Selesai!</h2>
-                            <p className="text-gray-600 mb-6">Jawaban Anda telah berhasil direkam dan dikirim ke server.</p>
-                            <button onClick={() => window.location.reload()} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Kembali ke Awal</button>
-                        </div>
-                    </div>
-                );
-            }
-
-            // EXAM UI
-            const q = examData.questions[currentIdx];
-            return (
-                <div className="min-h-screen bg-gray-100 flex flex-col">
-                    {/* Header */}
-                    <header className="bg-gradient-to-r from-cyan-600 to-blue-700 text-white shadow-md sticky top-0 z-10">
-                        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-                            <div>
-                                <h1 className="text-lg md:text-xl font-bold leading-tight">{IDENTITAS_UJIAN.mapel}</h1>
-                                <p className="text-xs md:text-sm text-blue-100">{IDENTITAS_UJIAN.jenis} • Kelas {IDENTITAS_UJIAN.kelas}</p>
-                            </div>
-                            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full font-mono text-lg font-bold">
-                                <IconClock /> {formatTime(examData.timeLeft)}
-                            </div>
-                        </div>
-                    </header>
-
-                    {/* Main Content */}
-                    <main className="flex-1 max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-4 gap-6">
-                        
-                        {/* Area Kiri: Soal */}
-                        <div className="lg:col-span-3 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-6 md:p-8 flex-1 overflow-y-auto">
-                                <div className="flex items-start gap-4 mb-6">
-                                    <div className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-md shrink-0">
-                                        Soal {currentIdx + 1}
-                                    </div>
-                                    <div className="text-gray-800 text-lg md:text-xl leading-relaxed whitespace-pre-wrap">
-                                        {q.text}
-                                    </div>
-                                </div>
-                                
-                                {q.image && (
-                                    <img src={q.image} alt={`Gambar Soal ${currentIdx+1}`} className="max-w-full h-auto mb-6 rounded-lg border" />
-                                )}
-
-                                <div className="space-y-3 pl-0 md:pl-16">
-                                    {q.options.map((opt, i) => {
-                                        const isSelected = examData.answers[q.id] === opt.id;
-                                        return (
-                                            <label key={i} className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-blue-500 shadow-sm' : 'hover:bg-gray-50 border-gray-200'}`}>
-                                                <input 
-                                                    type="radio" name={`q_${q.id}`} 
-                                                    className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500 mt-0.5"
-                                                    checked={isSelected}
-                                                    onChange={() => handleAnswer(q.id, opt.id)}
-                                                />
-                                                <span className="ml-3 text-gray-700">{opt.text}</span>
-                                            </label>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Navigasi Bawah Soal */}
-                            <div className="bg-gray-50 border-t p-4 flex justify-between items-center">
-                                <button 
-                                    onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
-                                    disabled={currentIdx === 0}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg shadow-sm hover:bg-gray-100 disabled:opacity-50 transition"
-                                >
-                                    <IconChevronLeft /> Sebelumnya
-                                </button>
-
-                                {currentIdx === examData.questions.length - 1 ? (
-                                    <button 
-                                        onClick={confirmSubmit}
-                                        className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition"
-                                    >
-                                        <IconCheck /> Selesai & Kumpulkan
-                                    </button>
-                                ) : (
-                                    <button 
-                                        onClick={() => setCurrentIdx(prev => Math.min(examData.questions.length - 1, prev + 1))}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition"
-                                    >
-                                        Selanjutnya <IconChevronRight />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Area Kanan: Navigasi Kotak Nomor */}
-                        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit">
-                            <h3 className="font-bold text-gray-700 mb-4 pb-2 border-b">Navigasi Soal</h3>
-                            <div className="grid grid-cols-5 gap-2">
-                                {examData.questions.map((quest, index) => {
-                                    const isAnswered = !!examData.answers[quest.id];
-                                    const isActive = index === currentIdx;
-                                    return (
-                                        <button
-                                            key={quest.id}
-                                            onClick={() => setCurrentIdx(index)}
-                                            className={`
-                                                relative w-full aspect-square flex items-center justify-center rounded font-semibold text-sm transition-all
-                                                ${isActive ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
-                                                ${isAnswered ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'}
-                                            `}
-                                        >
-                                            {index + 1}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            
-                            <div className="mt-6 space-y-2 text-sm text-gray-600">
-                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-500 rounded-sm"></div> Sudah Dijawab</div>
-                                <div className="flex items-center gap-2"><div className="w-4 h-4 bg-gray-100 border rounded-sm"></div> Belum Dijawab</div>
-                            </div>
-                        </div>
-                    </main>
-
-                    {/* Modals Injected here statically to prevent flickering of main layout */}
-                    <StaticModal {...modalConfig} />
+                <div
+                  className={`px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold flex items-center gap-1.5 ${
+                    violations > 0
+                      ? 'bg-red-50 border-red-300 text-red-700'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  }`}
+                >
+                  <Icon name="shield" className="w-4 h-4" />
+                  <span>Pelanggaran: {violations}/2</span>
                 </div>
-            );
+
+                <div
+                  className={`px-3.5 py-1.5 rounded-lg font-mono font-extrabold text-sm sm:text-base flex items-center gap-1.5 shadow-sm ${
+                    isLowTime
+                      ? 'bg-red-600 text-white animate-pulse'
+                      : 'bg-sky-900 text-cyan-200'
+                  }`}
+                >
+                  <Icon name="clock" className="w-4 h-4" />
+                  <span>{formatTime(timeLeft)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </header>
+      );
+    }
+
+    // =========================================================================
+    // APLIKASI UTAMA (SPA)
+    // =========================================================================
+    function App() {
+      // Tahapan layar: 'login' | 'exam' | 'result'
+      const [stage, setStage] = useState('login');
+
+      // Form Login
+      const [nama, setNama] = useState('');
+      const [kelas, setKelas] = useState('');
+      const [tanggal, setTanggal] = useState(getTodayDateString());
+
+      // Sesi Tersimpan di LocalStorage
+      const [savedSession, setSavedSession] = useState(null);
+
+      // State Ujian
+      const [questions, setQuestions] = useState([]);
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [answers, setAnswers] = useState({}); // { [questionId]: 'A' | ['A','B'] | 'teks' }
+      const [timeLeft, setTimeLeft] = useState(EXAM_CONFIG.durationMinutes * 60);
+      const [violations, setViolations] = useState(0);
+
+      // Hasil Akhir Ujian
+      const [examResult, setExamResult] = useState(null);
+      const [isSubmitting, setIsSubmitting] = useState(false);
+
+      // Custom Modals State
+      const [alertModal, setAlertModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'warning',
+        buttonText: 'Saya Mengerti',
+        onCloseCallback: null
+      });
+
+      const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmText: 'Ya, Lanjutkan',
+        cancelText: 'Batal',
+        isDanger: false,
+        onConfirmCallback: null
+      });
+
+      // Refs untuk akses sinkron pada event listener & timer tanpa stale closure
+      const stageRef = useRef(stage);
+      const violationsRef = useRef(violations);
+      const answersRef = useRef(answers);
+      const questionsRef = useRef(questions);
+      const studentRef = useRef({ nama, kelas, tanggal });
+      const isSubmittingRef = useRef(false);
+      const lastViolationTimestampRef = useRef(0);
+      const ignoreFullscreenGraceRef = useRef(false);
+
+      useEffect(() => { stageRef.current = stage; }, [stage]);
+      useEffect(() => { violationsRef.current = violations; }, [violations]);
+      useEffect(() => { answersRef.current = answers; }, [answers]);
+      useEffect(() => { questionsRef.current = questions; }, [questions]);
+      useEffect(() => { studentRef.current = { nama, kelas, tanggal }; }, [nama, kelas, tanggal]);
+
+      // 1. Cek LocalStorage saat aplikasi pertama kali dibuka
+      useEffect(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.student && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+              setSavedSession(parsed);
+            }
+          }
+        } catch (err) {
+          console.error("Gagal membaca sesi tersimpan:", err);
+        }
+      }, []);
+
+      // 2. Auto-Save ke LocalStorage setiap ada perubahan progres selama ujian berlangsung
+      useEffect(() => {
+        if (stage !== 'exam' || isSubmittingRef.current) return;
+        try {
+          const payloadToSave = {
+            student: { nama, kelas, tanggal },
+            questions,
+            currentIndex,
+            answers,
+            timeLeft,
+            violations,
+            updatedAt: new Date().toISOString()
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadToSave));
+        } catch (err) {
+          console.error("Gagal menyimpan ke LocalStorage:", err);
+        }
+      }, [stage, nama, kelas, tanggal, questions, currentIndex, answers, timeLeft, violations]);
+
+      // Helper Fullscreen
+      const requestAppFullscreen = useCallback(() => {
+        const elem = document.documentElement;
+        if (!document.fullscreenElement && elem.requestFullscreen) {
+          ignoreFullscreenGraceRef.current = true;
+          elem.requestFullscreen()
+            .catch(() => {})
+            .finally(() => {
+              setTimeout(() => {
+                ignoreFullscreenGraceRef.current = false;
+              }, 600);
+            });
+        }
+      }, []);
+
+      const exitAppFullscreen = useCallback(() => {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }, []);
+
+      // 3. Fungsi Penilaian Runtut & Pengiriman ke Google Sheets
+      const finalizeAndSubmitExam = useCallback(async (reasonText, overrideViolations = null) => {
+        if (isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
+        setIsSubmitting(true);
+
+        // Tutup modal yang mungkin terbuka
+        setAlertModal((prev) => ({ ...prev, isOpen: false }));
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+
+        const currentQuestions = questionsRef.current;
+        const currentAnswers = answersRef.current;
+        const currentStudent = studentRef.current;
+        const finalViolations = overrideViolations !== null ? overrideViolations : violationsRef.current;
+
+        // Urutkan soal kembali berdasarkan nomor ID asli (1 sampai N)
+        const sortedQuestions = [...currentQuestions].sort((a, b) => a.id - b.id);
+
+        let correctCount = 0;
+        let wrongCount = 0;
+        let emptyCount = 0;
+        const detailStrings = [];
+        const detailItems = [];
+
+        sortedQuestions.forEach((q) => {
+          const userAns = currentAnswers[q.id];
+
+          if (q.type === 'mc') {
+            if (!userAns || userAns === '') {
+              emptyCount++;
+              detailStrings.push(`Soal ${q.id}: KOSONG`);
+              detailItems.push({ id: q.id, status: 'KOSONG', userAns: '-', key: q.answer });
+            } else if (userAns === q.answer) {
+              correctCount++;
+              detailStrings.push(`Soal ${q.id}: BENAR`);
+              detailItems.push({ id: q.id, status: 'BENAR', userAns, key: q.answer });
+            } else {
+              wrongCount++;
+              detailStrings.push(`Soal ${q.id}: SALAH (Pilih: ${userAns}, Kunci: ${q.answer})`);
+              detailItems.push({ id: q.id, status: 'SALAH', userAns, key: q.answer });
+            }
+          } else if (q.type === 'mc_complex') {
+            const arrUser = Array.isArray(userAns) ? [...userAns].sort() : [];
+            const arrKey = Array.isArray(q.answer) ? [...q.answer].sort() : [];
+            if (arrUser.length === 0) {
+              emptyCount++;
+              detailStrings.push(`Soal ${q.id}: KOSONG`);
+              detailItems.push({ id: q.id, status: 'KOSONG', userAns: '-', key: arrKey.join(',') });
+            } else if (JSON.stringify(arrUser) === JSON.stringify(arrKey)) {
+              correctCount++;
+              detailStrings.push(`Soal ${q.id}: BENAR`);
+              detailItems.push({ id: q.id, status: 'BENAR', userAns: arrUser.join(','), key: arrKey.join(',') });
+            } else {
+              wrongCount++;
+              detailStrings.push(`Soal ${q.id}: SALAH (Pilih: ${arrUser.join(',')}, Kunci: ${arrKey.join(',')})`);
+              detailItems.push({ id: q.id, status: 'SALAH', userAns: arrUser.join(','), key: arrKey.join(',') });
+            }
+          } else if (q.type === 'short') {
+            const strUser = typeof userAns === 'string' ? userAns.trim() : '';
+            const strKey = String(q.answer || '').trim();
+            if (!strUser) {
+              emptyCount++;
+              detailStrings.push(`Soal ${q.id}: KOSONG`);
+              detailItems.push({ id: q.id, status: 'KOSONG', userAns: '-', key: strKey });
+            } else if (strUser.toLowerCase() === strKey.toLowerCase()) {
+              correctCount++;
+              detailStrings.push(`Soal ${q.id}: BENAR`);
+              detailItems.push({ id: q.id, status: 'BENAR', userAns: strUser, key: strKey });
+            } else {
+              wrongCount++;
+              detailStrings.push(`Soal ${q.id}: SALAH (Pilih: ${strUser}, Kunci: ${strKey})`);
+              detailItems.push({ id: q.id, status: 'SALAH', userAns: strUser, key: strKey });
+            }
+          }
+        });
+
+        const totalQuestions = sortedQuestions.length;
+        const rawScore = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+        const finalScore = Number.isInteger(rawScore) ? rawScore : Number(rawScore.toFixed(2));
+        const rincianJawaban = detailStrings.join(' | ');
+
+        const submissionPayload = {
+          nama: currentStudent.nama,
+          kelas: currentStudent.kelas,
+          tanggal: currentStudent.tanggal,
+          skor: finalScore,
+          pelanggaran: finalViolations,
+          keterangan: reasonText,
+          rincianJawaban: rincianJawaban,
+          mapel: EXAM_CONFIG.subject,
+          jenisUjian: EXAM_CONFIG.examType,
+          jumlahBenar: correctCount,
+          jumlahSalah: wrongCount,
+          jumlahKosong: emptyCount,
+          totalSoal: totalQuestions
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+        // Kirim data ke Google Sheets menggunakan mode no-cors & text/plain
+        let syncStatus = 'Terkirim ke Server Google Sheets';
+        try {
+          if (GOOGLE_SHEETS_WEB_APP_URL && GOOGLE_SHEETS_WEB_APP_URL !== "URL_APPS_SCRIPT_ANDA") {
+            await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: {
+                'Content-Type': 'text/plain'
+              },
+              body: JSON.stringify(submissionPayload)
+            });
+          } else {
+            syncStatus = 'Mode Lokal (URL Apps Script belum diatur)';
+          }
+        } catch (error) {
+          console.error("Error saat mengirim ke Google Sheets:", error);
+          syncStatus = 'Gagal terhubung ke server (Nilai tersimpan di layar)';
+        }
+
+        // Hapus data dari LocalStorage setelah submit berhasil diproses
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (e) {}
+
+        exitAppFullscreen();
+
+        setExamResult({
+          ...submissionPayload,
+          detailItems,
+          syncStatus
+        });
+        setStage('result');
+        setIsSubmitting(false);
+      }, [exitAppFullscreen]);
+
+      // 4. Timer Hitung Mundur
+      useEffect(() => {
+        if (stage !== 'exam') return;
+
+        const timerId = setInterval(() => {
+          setTimeLeft((prev) => {
+            if (prev <= 1) {
+              clearInterval(timerId);
+              finalizeAndSubmitExam("Waktu Habis (Auto-Submit)");
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+
+        return () => clearInterval(timerId);
+      }, [stage, finalizeAndSubmitExam]);
+
+      // 5. Sistem Keamanan Anti-Kecurangan (Anti-Copy, Anti-RightClick, Visibility & Fullscreen)
+      useEffect(() => {
+        if (stage !== 'exam') return;
+
+        const triggerViolation = (sourceReason) => {
+          if (isSubmittingRef.current || stageRef.current !== 'exam') return;
+
+          // Debounce 800ms agar satu aksi (misal Alt+Tab yang memicu fullscreenchange + visibilitychange)
+          // tidak terhitung ganda secara bersamaan
+          const now = Date.now();
+          if (now - lastViolationTimestampRef.current < 800) return;
+          lastViolationTimestampRef.current = now;
+
+          const nextCount = violationsRef.current + 1;
+          violationsRef.current = nextCount;
+          setViolations(nextCount);
+
+          if (nextCount === 1) {
+            setAlertModal({
+              isOpen: true,
+              type: 'warning',
+              title: 'PERINGATAN PELANGGARAN KE-1!',
+              message: `Sistem mendeteksi Anda ${sourceReason}.\n\nIni adalah peringatan pertama dan terakhir. Jika Anda kembali keluar dari mode layar penuh (Fullscreen) atau berpindah tab/aplikasi untuk kedua kalinya, ujian akan otomatis dikunci dan dikumpulkan!`,
+              buttonText: 'Kembali ke Mode Layar Penuh',
+              onCloseCallback: () => {
+                requestAppFullscreen();
+              }
+            });
+          } else if (nextCount >= 2) {
+            finalizeAndSubmitExam(`Pelanggaran Batas Maksimal (${nextCount}x - ${sourceReason})`, nextCount);
+          }
+        };
+
+        const handleVisibilityChange = () => {
+          if (document.hidden) {
+            triggerViolation("berpindah tab atau meminimalkan jendela browser");
+          }
+        };
+
+        const handleFullscreenChange = () => {
+          if (!document.fullscreenElement && !ignoreFullscreenGraceRef.current) {
+            triggerViolation("keluar dari mode layar penuh (Fullscreen)");
+          }
+        };
+
+        const handleContextMenu = (e) => {
+          e.preventDefault();
+        };
+
+        const handleCopyCutPaste = (e) => {
+          e.preventDefault();
+        };
+
+        const handleKeyDown = (e) => {
+          // Blokir shortcut inspect/copy/view-source
+          if (
+            (e.ctrlKey && ['c', 'v', 'x', 'u', 's', 'p', 'a'].includes(e.key.toLowerCase())) ||
+            (e.ctrlKey && e.shiftKey && ['i', 'j', 'c'].includes(e.key.toLowerCase())) ||
+            e.key === 'F12'
+          ) {
+            e.preventDefault();
+          }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('contextmenu', handleContextMenu);
+        document.addEventListener('copy', handleCopyCutPaste);
+        document.addEventListener('cut', handleCopyCutPaste);
+        document.addEventListener('paste', handleCopyCutPaste);
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          document.removeEventListener('fullscreenchange', handleFullscreenChange);
+          document.removeEventListener('contextmenu', handleContextMenu);
+          document.removeEventListener('copy', handleCopyCutPaste);
+          document.removeEventListener('cut', handleCopyCutPaste);
+          document.removeEventListener('paste', handleCopyCutPaste);
+          document.removeEventListener('keydown', handleKeyDown);
+        };
+      }, [stage, finalizeAndSubmitExam, requestAppFullscreen]);
+
+      // Handler Mulai Ujian Baru
+      const handleStartNewExam = (e) => {
+        e.preventDefault();
+        const trimmedNama = nama.trim();
+        const trimmedKelas = kelas.trim();
+
+        if (!trimmedNama || !trimmedKelas || !tanggal) {
+          setAlertModal({
+            isOpen: true,
+            type: 'warning',
+            title: 'Data Identitas Belum Lengkap',
+            message: 'Harap isi Nama Lengkap, Kelas, dan Tanggal Ujian terlebih dahulu sebelum memulai ujian.',
+            buttonText: 'Lengkapi Data',
+            onCloseCallback: null
+          });
+          return;
+        }
+
+        const shuffled = prepareShuffledExam(rawQuestionsData);
+        const initialTime = EXAM_CONFIG.durationMinutes * 60;
+
+        isSubmittingRef.current = false;
+        violationsRef.current = 0;
+        lastViolationTimestampRef.current = Date.now();
+
+        setNama(trimmedNama);
+        setKelas(trimmedKelas);
+        setQuestions(shuffled);
+        setCurrentIndex(0);
+        setAnswers({});
+        setTimeLeft(initialTime);
+        setViolations(0);
+        setSavedSession(null);
+
+        requestAppFullscreen();
+        setStage('exam');
+      };
+
+      // Handler Lanjutkan Sesi dari LocalStorage
+      const handleResumeSession = () => {
+        if (!savedSession) return;
+        isSubmittingRef.current = false;
+        violationsRef.current = savedSession.violations || 0;
+        lastViolationTimestampRef.current = Date.now();
+
+        setNama(savedSession.student.nama);
+        setKelas(savedSession.student.kelas);
+        setTanggal(savedSession.student.tanggal);
+        setQuestions(savedSession.questions);
+        setCurrentIndex(savedSession.currentIndex || 0);
+        setAnswers(savedSession.answers || {});
+        setTimeLeft(savedSession.timeLeft || EXAM_CONFIG.durationMinutes * 60);
+        setViolations(savedSession.violations || 0);
+
+        requestAppFullscreen();
+        setStage('exam');
+      };
+
+      // Handler Hapus Progres Tersimpan
+      const handleResetSavedSession = () => {
+        setConfirmModal({
+          isOpen: true,
+          isDanger: true,
+          title: 'Hapus Progres Tersimpan?',
+          message: 'Seluruh jawaban dan sisa waktu dari sesi sebelumnya akan dihapus permanen. Anda akan memulai ulang dari awal.',
+          confirmText: 'Ya, Hapus Progres',
+          cancelText: 'Batal',
+          onConfirmCallback: () => {
+            try {
+              localStorage.removeItem(STORAGE_KEY);
+            } catch (e) {}
+            setSavedSession(null);
+            setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          }
+        });
+      };
+
+      // Handler Memilih Jawaban
+      const handleSelectSingleOption = (questionId, origKey) => {
+        setAnswers((prev) => ({
+          ...prev,
+          [questionId]: origKey
+        }));
+      };
+
+      const handleToggleComplexOption = (questionId, origKey) => {
+        setAnswers((prev) => {
+          const currentArr = Array.isArray(prev[questionId]) ? prev[questionId] : [];
+          if (currentArr.includes(origKey)) {
+            return {
+              ...prev,
+              [questionId]: currentArr.filter((k) => k !== origKey)
+            };
+          } else {
+            return {
+              ...prev,
+              [questionId]: [...currentArr, origKey]
+            };
+          }
+        });
+      };
+
+      const handleShortAnswerChange = (questionId, value) => {
+        setAnswers((prev) => ({
+          ...prev,
+          [questionId]: value
+        }));
+      };
+
+      // Cek apakah sebuah soal sudah dijawab
+      const isQuestionAnswered = (q) => {
+        const val = answers[q.id];
+        if (q.type === 'mc_complex') return Array.isArray(val) && val.length > 0;
+        if (q.type === 'short') return typeof val === 'string' && val.trim().length > 0;
+        return Boolean(val);
+      };
+
+      // Konfirmasi Sebelum Kumpulkan Ujian
+      const handleRequestSubmit = () => {
+        const answeredCount = questions.filter((q) => isQuestionAnswered(q)).length;
+        const unansweredCount = questions.length - answeredCount;
+
+        const message =
+          unansweredCount > 0
+            ? `Anda telah menjawab ${answeredCount} dari ${questions.length} soal.\nMasih ada ${unansweredCount} soal yang BELUM DIJAWAB.\n\nApakah Anda yakin ingin mengakhiri ujian dan mengumpulkan jawaban sekarang?`
+            : `Selamat! Anda telah menjawab seluruh (${questions.length}) soal.\n\nApakah Anda yakin ingin mengakhiri ujian dan mengirimkan jawaban ke server?`;
+
+        setConfirmModal({
+          isOpen: true,
+          isDanger: false,
+          title: 'Konfirmasi Pengumpulan Ujian',
+          message,
+          confirmText: 'Ya, Kumpulkan Sekarang',
+          cancelText: 'Periksa Kembali',
+          onConfirmCallback: () => {
+            finalizeAndSubmitExam("Selesai Dikerjakan Siswa");
+          }
+        });
+      };
+
+      const currentQuestion = questions[currentIndex] || null;
+      const answeredTotal = questions.filter((q) => isQuestionAnswered(q)).length;
+
+      return (
+        <div className={`min-h-screen flex flex-col ${stage === 'exam' ? 'no-select' : ''}`}>
+          {/* HEADER UTAMA */}
+          <AppHeader
+            student={{ nama, kelas, tanggal }}
+            timeLeft={timeLeft}
+            violations={violations}
+            isExamActive={stage === 'exam'}
+          />
+
+          {/* KONTEN UTAMA BERDASARKAN TAHAPAN */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            {/* ==================== 1. HALAMAN LOGIN ==================== */}
+            {stage === 'login' && (
+              <div className="max-w-xl mx-auto">
+                {/* Banner Sesi Tersimpan di LocalStorage */}
+                {savedSession && (
+                  <div className="mb-6 bg-amber-50 border-2 border-amber-400 rounded-2xl p-5 shadow-xl">
+                    <div className="flex items-start gap-3.5">
+                      <div className="p-2.5 bg-amber-500 text-white rounded-xl shrink-0">
+                        <Icon name="refresh" className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-base sm:text-lg font-extrabold text-amber-900">
+                          Sesi Ujian Tersimpan Ditemukan!
+                        </h2>
+                        <p className="text-xs sm:text-sm text-amber-800 mt-1">
+                          Peserta: <strong>{savedSession.student.nama}</strong> ({savedSession.student.kelas}) &bull; Sisa Waktu: <strong>{formatTime(savedSession.timeLeft)}</strong>
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2.5">
+                          <button
+                            type="button"
+                            onClick={handleResumeSession}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow transition active:scale-95"
+                          >
+                            Lanjutkan Ujian
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleResetSavedSession}
+                            className="px-4 py-2 rounded-xl bg-white hover:bg-red-50 text-red-700 border border-red-300 font-semibold text-sm transition active:scale-95"
+                          >
+                            Mulai Ulang (Hapus Progres)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Card Login Peserta */}
+                <div className="bg-white rounded-2xl shadow-2xl border border-sky-100 overflow-hidden">
+                  <div className="bg-gradient-to-r from-sky-800 to-blue-900 px-6 py-5 text-white">
+                    <h2 className="text-lg sm:text-xl font-bold">Identitas Peserta Ujian</h2>
+                    <p className="text-xs sm:text-sm text-cyan-200 mt-0.5">
+                      Durasi: {EXAM_CONFIG.durationMinutes} Menit &bull; Jumlah Soal: {rawQuestionsData.length} Butir
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleStartNewExam} className="p-6 space-y-5">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                        Nama Lengkap <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={nama}
+                        onChange={(e) => setNama(e.target.value)}
+                        placeholder="Masukkan nama lengkap sesuai absen..."
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 outline-none transition text-slate-900 font-medium"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                          Kelas <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={kelas}
+                          onChange={(e) => setKelas(e.target.value)}
+                          placeholder="Contoh: IX-A"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 outline-none transition text-slate-900 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                          Tanggal Ujian <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={tanggal}
+                          onChange={(e) => setTanggal(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 outline-none transition text-slate-900 font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Peraturan Ujian */}
+                    <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-xs sm:text-sm text-sky-900 space-y-1.5">
+                      <p className="font-bold flex items-center gap-1.5 text-sky-950">
+                        <Icon name="shield" className="w-4 h-4 text-sky-700" />
+                        Tata Tertib & Sistem Keamanan CBT:
+                      </p>
+                      <ul className="list-disc pl-5 space-y-1 text-slate-700">
+                        <li>Ujian akan berjalan otomatis dalam mode <strong>Layar Penuh (Fullscreen)</strong>.</li>
+                        <li>Dilarang keluar dari layar penuh, berpindah tab, atau membuka aplikasi lain.</li>
+                        <li><strong>Pelanggaran ke-1</strong> mendapat peringatan keras; <strong>Pelanggaran ke-2</strong> otomatis mengunci & mengumpulkan ujian.</li>
+                      </ul>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 text-white font-extrabold text-base shadow-lg hover:shadow-xl transition transform active:scale-[0.99] flex items-center justify-center gap-2"
+                    >
+                      <span>Mulai Ujian</span>
+                      <Icon name="chevronRight" className="w-5 h-5" />
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* ==================== 2. HALAMAN UJIAN (EXAM UI) ==================== */}
+            {stage === 'exam' && currentQuestion && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* AREA SOAL & OPSI JAWABAN (KIRI / TENGAH) */}
+                <div className="lg:col-span-8 bg-white rounded-2xl shadow-xl border border-sky-100 overflow-hidden">
+                  {/* Bar Nomor Soal */}
+                  <div className="bg-slate-50 border-b border-slate-200 px-5 sm:px-6 py-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-3 py-1 rounded-lg bg-sky-700 text-white font-extrabold text-sm">
+                        Soal No. {currentIndex + 1}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {currentQuestion.type === 'mc' && 'Pilihan Ganda'}
+                        {currentQuestion.type === 'mc_complex' && 'Pilihan Ganda Kompleks'}
+                        {currentQuestion.type === 'short' && 'Isian Singkat'}
+                      </span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-semibold text-slate-500">
+                      {currentIndex + 1} dari {questions.length}
+                    </span>
+                  </div>
+
+                  {/* Isi Pertanyaan */}
+                  <div className="p-5 sm:p-7">
+                    {currentQuestion.image && (
+                      <div className="mb-5 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 p-2">
+                        <img
+                          src={currentQuestion.image}
+                          alt={`Ilustrasi Soal ${currentIndex + 1}`}
+                          className="max-h-72 mx-auto rounded-lg object-contain"
+                        />
+                      </div>
+                    )}
+
+                    <div
+                      className="text-slate-800 text-base sm:text-lg leading-relaxed font-medium mb-6"
+                      dangerouslySetInnerHTML={{ __html: currentQuestion.question }}
+                    />
+
+                    {/* OPSI JAWABAN: PILIHAN GANDA BIASA (type: 'mc') */}
+                    {currentQuestion.type === 'mc' && (
+                      <div className="space-y-3">
+                        {currentQuestion.shuffledOptions.map((opt) => {
+                          const isSelected = answers[currentQuestion.id] === opt.origKey;
+                          return (
+                            <button
+                              key={opt.origKey}
+                              type="button"
+                              onClick={() => handleSelectSingleOption(currentQuestion.id, opt.origKey)}
+                              className={`w-full text-left p-4 rounded-xl border-2 transition flex items-start gap-3.5 ${
+                                isSelected
+                                  ? 'border-sky-600 bg-sky-50/90 shadow-sm'
+                                  : 'border-slate-200 hover:border-sky-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-sm shrink-0 transition ${
+                                  isSelected
+                                    ? 'bg-sky-600 text-white'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {opt.displayKey}
+                              </span>
+                              <span
+                                className={`pt-1 text-sm sm:text-base leading-snug ${
+                                  isSelected ? 'text-sky-950 font-semibold' : 'text-slate-700'
+                                }`}
+                                dangerouslySetInnerHTML={{ __html: opt.text }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* OPSI JAWABAN: PILIHAN GANDA KOMPLEKS (type: 'mc_complex') */}
+                    {currentQuestion.type === 'mc_complex' && (
+                      <div className="space-y-3">
+                        <p className="text-xs font-semibold text-sky-700 mb-2">
+                          * Pilih lebih dari satu jawaban yang benar:
+                        </p>
+                        {currentQuestion.shuffledOptions.map((opt) => {
+                          const selectedList = Array.isArray(answers[currentQuestion.id])
+                            ? answers[currentQuestion.id]
+                            : [];
+                          const isChecked = selectedList.includes(opt.origKey);
+                          return (
+                            <button
+                              key={opt.origKey}
+                              type="button"
+                              onClick={() => handleToggleComplexOption(currentQuestion.id, opt.origKey)}
+                              className={`w-full text-left p-4 rounded-xl border-2 transition flex items-start gap-3.5 ${
+                                isChecked
+                                  ? 'border-sky-600 bg-sky-50/90 shadow-sm'
+                                  : 'border-slate-200 hover:border-sky-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span
+                                className={`w-7 h-7 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition ${
+                                  isChecked
+                                    ? 'bg-sky-600 border-sky-600 text-white'
+                                    : 'border-slate-300 bg-white'
+                                }`}
+                              >
+                                {isChecked && <Icon name="check" className="w-4 h-4" />}
+                              </span>
+                              <span
+                                className={`text-sm sm:text-base leading-snug ${
+                                  isChecked ? 'text-sky-950 font-semibold' : 'text-slate-700'
+                                }`}
+                                dangerouslySetInnerHTML={{ __html: opt.text }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* OPSI JAWABAN: ISIAN SINGKAT (type: 'short') */}
+                    {currentQuestion.type === 'short' && (
+                      <div className="mt-2">
+                        <label className="block text-sm font-bold text-slate-700 mb-2">
+                          Ketik Jawaban Singkat Anda:
+                        </label>
+                        <input
+                          type="text"
+                          value={answers[currentQuestion.id] || ''}
+                          onChange={(e) => handleShortAnswerChange(currentQuestion.id, e.target.value)}
+                          placeholder="Tulis jawaban di sini..."
+                          className="w-full px-4 py-3.5 rounded-xl border-2 border-slate-300 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 outline-none text-slate-900 font-semibold text-base select-text"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* TOMBOL NAVIGASI BAWAH */}
+                  <div className="bg-slate-50 border-t border-slate-200 px-5 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      disabled={currentIndex === 0}
+                      onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                      className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-1.5 transition ${
+                        currentIndex === 0
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 active:scale-95'
+                      }`}
+                    >
+                      <Icon name="chevronLeft" className="w-4 h-4" />
+                      <span>Sebelumnya</span>
+                    </button>
+
+                    <div className="flex items-center gap-2.5 ml-auto">
+                      {currentIndex < questions.length - 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1))}
+                          className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm shadow flex items-center gap-1.5 transition active:scale-95"
+                        >
+                          <span>Selanjutnya</span>
+                          <Icon name="chevronRight" className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleRequestSubmit}
+                          disabled={isSubmitting}
+                          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg flex items-center gap-2 transition active:scale-95"
+                        >
+                          <Icon name="send" className="w-4 h-4" />
+                          <span>{isSubmitting ? 'Mengirim...' : 'Selesai & Kumpulkan'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* NAVIGASI KOTAK NOMOR SOAL (KANAN / BAWAH) */}
+                <div className="lg:col-span-4 bg-white rounded-2xl shadow-xl border border-sky-100 p-5 sticky top-24">
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200">
+                    <div className="flex items-center gap-2 font-bold text-slate-800">
+                      <Icon name="grid" className="w-5 h-5 text-sky-600" />
+                      <span>Navigasi Soal</span>
+                    </div>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+                      Terjawab: {answeredTotal}/{questions.length}
+                    </span>
+                  </div>
+
+                  {/* Grid Nomor */}
+                  <div className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-5 gap-2 max-h-[360px] overflow-y-auto p-1">
+                    {questions.map((q, idx) => {
+                      const answered = isQuestionAnswered(q);
+                      const isActive = idx === currentIndex;
+                      return (
+                        <button
+                          key={q.id}
+                          type="button"
+                          onClick={() => setCurrentIndex(idx)}
+                          className={`h-10 rounded-lg font-bold text-sm border transition flex items-center justify-center ${
+                            answered
+                              ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600'
+                              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                          } ${isActive ? 'ring-4 ring-blue-500 ring-offset-1 scale-105 z-10' : ''}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Legenda Warna */}
+                  <div className="mt-5 pt-4 border-t border-slate-200 grid grid-cols-3 gap-2 text-xs text-slate-600">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 rounded bg-emerald-500 inline-block shrink-0"></span>
+                      <span>Dijawab</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 rounded bg-white border border-slate-300 inline-block shrink-0"></span>
+                      <span>Kosong</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 rounded bg-white ring-2 ring-blue-500 inline-block shrink-0"></span>
+                      <span>Aktif</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ==================== 3. HALAMAN NILAI / SELESAI ==================== */}
+            {stage === 'result' && examResult && (
+              <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl border border-sky-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-700 px-6 py-7 text-white text-center">
+                  <div className="w-16 h-16 rounded-full bg-white/20 mx-auto flex items-center justify-center mb-3">
+                    <Icon name="checkCircle" className="w-10 h-10 text-white" />
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold">Ujian Telah Selesai!</h2>
+                  <p className="text-emerald-100 text-sm mt-1">{examResult.syncStatus}</p>
+                </div>
+
+                <div className="p-6 sm:p-8">
+                  {/* Skor Besar */}
+                  <div className="text-center bg-sky-50 border border-sky-200 rounded-2xl p-6 mb-6">
+                    <p className="text-xs font-bold uppercase tracking-wider text-sky-700">
+                      Nilai Akhir Anda
+                    </p>
+                    <div className="text-5xl sm:text-6xl font-extrabold text-sky-900 my-2">
+                      {examResult.skor}
+                    </div>
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-sky-200 text-sky-900">
+                      {examResult.keterangan}
+                    </span>
+                  </div>
+
+                  {/* Ringkasan Identitas & Statistik */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-sm">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-1.5">
+                      <p className="text-slate-500">Nama Peserta: <strong className="text-slate-900">{examResult.nama}</strong></p>
+                      <p className="text-slate-500">Kelas: <strong className="text-slate-900">{examResult.kelas}</strong></p>
+                      <p className="text-slate-500">Tanggal: <strong className="text-slate-900">{examResult.tanggal}</strong></p>
+                      <p className="text-slate-500">Pelanggaran: <strong className={examResult.pelanggaran > 0 ? 'text-red-600' : 'text-emerald-600'}>{examResult.pelanggaran} kali</strong></p>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 grid grid-cols-3 gap-2 text-center items-center">
+                      <div>
+                        <div className="text-2xl font-extrabold text-emerald-600">{examResult.jumlahBenar}</div>
+                        <div className="text-xs font-semibold text-slate-500">Benar</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-extrabold text-red-600">{examResult.jumlahSalah}</div>
+                        <div className="text-xs font-semibold text-slate-500">Salah</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-extrabold text-slate-600">{examResult.jumlahKosong}</div>
+                        <div className="text-xs font-semibold text-slate-500">Kosong</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rincian Analisis Butir Soal Runtut (No 1 - 50) */}
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider mb-3">
+                      Rincian Analisis Jawaban (Urutan Nomor Asli 1 - {examResult.totalSoal})
+                    </h3>
+                    <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs sm:text-sm">
+                      {examResult.detailItems.map((item) => (
+                        <div key={item.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-50">
+                          <span className="font-bold text-slate-700">Soal {item.id}</span>
+                          {item.status === 'BENAR' && (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
+                              BENAR
+                            </span>
+                          )}
+                          {item.status === 'SALAH' && (
+                            <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-bold">
+                              SALAH (Pilih: {item.userAns}, Kunci: {item.key})
+                            </span>
+                          )}
+                          {item.status === 'KOSONG' && (
+                            <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold">
+                              KOSONG
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* CUSTOM MODALS (DIDEFINISIKAN DI LUAR APP AGAR TIDAK BERKEDIP) */}
+          <AlertModal
+            isOpen={alertModal.isOpen}
+            title={alertModal.title}
+            message={alertModal.message}
+            type={alertModal.type}
+            buttonText={alertModal.buttonText}
+            onClose={() => {
+              const cb = alertModal.onCloseCallback;
+              setAlertModal((prev) => ({ ...prev, isOpen: false, onCloseCallback: null }));
+              if (cb) cb();
+            }}
+          />
+
+          <ConfirmModal
+            isOpen={confirmModal.isOpen}
+            title={confirmModal.title}
+            message={confirmModal.message}
+            confirmText={confirmModal.confirmText}
+            cancelText={confirmModal.cancelText}
+            isDanger={confirmModal.isDanger}
+            onConfirm={() => {
+              const cb = confirmModal.onConfirmCallback;
+              setConfirmModal((prev) => ({ ...prev, isOpen: false, onConfirmCallback: null }));
+              if (cb) cb();
+            }}
+            onCancel={() => {
+              setConfirmModal((prev) => ({ ...prev, isOpen: false, onConfirmCallback: null }));
+            }}
+          />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
